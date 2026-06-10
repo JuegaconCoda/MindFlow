@@ -578,8 +578,8 @@
       <button class="primary" id="btn-register" style="width:100%">Crear cuenta</button>
     </div>
     <div class="status-bar" id="auth-status" style="margin-top:12px">Cada usuario tiene su propio mapa</div>
-    <p class="auth-note">
-      🔒 Las cuentas se guardan en este navegador. Para equipos en la nube (GitHub Pages), usa el mismo enlace + cuentas distintas. La colaboración en tiempo real usa el ID de sync compartido en ☁️ Sync.
+    <p class="auth-note" id="auth-cloud-note">
+      ☁️ Con JSONBin configurado en ☁️ Sync, tu cuenta y mapa se sincronizan entre PC, móvil y web. Sin nube, todo queda solo en este navegador.
     </p>
   </div>
 </div>
@@ -838,21 +838,58 @@
 
     <div class="panel" id="panel-sync">
       <div class="card">
-        <h3>Continuidad entre dispositivos</h3>
-        <p class="hint">Tu mapa se guarda automáticamente en este navegador. Para verlo en móvil y PC, activa la sincronización en la nube.</p>
+        <h3>☁️ Cuenta en la nube (JSONBin)</h3>
+        <p class="hint">Sincroniza tu <strong>usuario y mapa</strong> entre dispositivos. Gratis en <a class="api-link" href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a></p>
+        <details style="margin-bottom:12px;font-size:12px;color:var(--muted)">
+          <summary style="cursor:pointer;color:var(--accent2);font-weight:600">Guía rápida JSONBin</summary>
+          <ol style="margin:10px 0 0 18px;line-height:1.7">
+            <li>Crea cuenta en jsonbin.io → <strong>API Keys</strong> → copia <strong>X-Master-Key</strong></li>
+            <li>Pégala abajo y pulsa <strong>Crear nube</strong> (genera el Bin ID)</li>
+            <li>Pulsa <strong>Guardar configuración</strong></li>
+            <li>En cada dispositivo: misma API Key + Bin ID → inicia sesión con tu usuario</li>
+          </ol>
+        </details>
         <div class="status-bar" id="sync-local-status" style="margin-bottom:10px">Guardado local activo</div>
         <div class="field">
-          <label>ID de sincronización (nube)</label>
-          <input type="text" id="sync-blob-id" placeholder="Pega aquí tu ID o crea uno nuevo" />
-          <p class="hint">Usa el mismo ID en todos tus dispositivos para ver el mismo mapa.</p>
+          <label>API Key (X-Master-Key)</label>
+          <input type="password" id="jsonbin-api-key" placeholder="$2a$..." autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>Bin ID</label>
+          <input type="text" id="jsonbin-bin-id" placeholder="Se genera al crear la nube" />
+          <p class="hint">Mismo Bin ID en PC, móvil y web publicada.</p>
+        </div>
+        <label class="hint" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="jsonbin-auto-sync" checked />
+          Sincronizar automáticamente cada 25 s
+        </label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="primary" id="btn-jsonbin-save">💾 Guardar configuración</button>
+          <button id="btn-jsonbin-create">☁️ Crear nube</button>
+          <button id="btn-jsonbin-test">🔗 Probar conexión</button>
+          <button id="btn-jsonbin-push">⬆️ Subir mapa</button>
+          <button id="btn-jsonbin-pull">⬇️ Descargar mapa</button>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Subir cuenta local a la nube (solo una vez)</label>
+          <input type="password" id="jsonbin-upload-pass" placeholder="Tu contraseña actual" autocomplete="current-password" />
+        </div>
+        <button id="btn-jsonbin-upload-account" style="width:100%;margin-top:6px">📤 Subir mi cuenta a la nube</button>
+        <div class="status-bar" id="sync-status" style="margin-top:10px">JSONBin no configurado</div>
+      </div>
+      <div class="card">
+        <h3>🤝 Compartir mapa (colaboración)</h3>
+        <p class="hint">Para que <strong>varias personas</strong> editen el mismo mapa a la vez (distintas cuentas).</p>
+        <div class="field">
+          <label>ID de colaboración (JSONBlob)</label>
+          <input type="text" id="sync-blob-id" placeholder="Pega aquí el ID compartido" />
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="primary" id="btn-create-sync">☁️ Crear sync en nube</button>
+          <button id="btn-create-sync">＋ Crear ID colaboración</button>
           <button id="btn-connect-sync">🔗 Conectar ID</button>
-          <button id="btn-push-sync">⬆️ Subir ahora</button>
+          <button id="btn-push-sync">⬆️ Subir</button>
           <button id="btn-pull-sync">⬇️ Descargar</button>
         </div>
-        <div class="status-bar" id="sync-status" style="margin-top:10px">Sin sincronización en nube</div>
       </div>
       <div class="card">
         <h3>Código manual (sin nube)</h3>
@@ -891,7 +928,7 @@
       </div>
       <div class="card">
         <h3>Colaboración en tiempo real</h3>
-        <p class="hint">Cada usuario tiene su mapa propio al iniciar sesión. Para trabajar juntos: uno crea un ID en ☁️ Sync y lo comparte con el equipo (mismo ID + cuentas distintas).</p>
+        <p class="hint">JSONBin sincroniza <strong>tu cuenta</strong> entre dispositivos. Para editar juntos en tiempo real: crea un ID de colaboración en ☁️ Sync y compártelo (cuentas distintas).</p>
         <label class="hint" style="display:flex;align-items:center;gap:8px;cursor:pointer">
           <input type="checkbox" id="collab-enabled" />
           Activar colaboración automática
@@ -1101,6 +1138,9 @@ const state = {
   saveTimer: null,
   history: { past: [], future: [], locking: false },
   collabTimer: null,
+  cloudSyncTimer: null,
+  cloudStateCache: null,
+  cloudStateCacheAt: 0,
   lastCloudTime: 0,
   continuousDictation: false,
   dictationRecognition: null,
@@ -1290,6 +1330,300 @@ function saveUserSyncId(id) {
   else localStorage.removeItem(getSyncBlobKey());
 }
 
+// ─── JSONBin — sincronización de cuenta multi-dispositivo ────
+const CLOUD_CONFIG_KEY = 'mf_jsonbin_cloud';
+
+function loadCloudConfig() {
+  try { return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || 'null'); }
+  catch { return null; }
+}
+
+function saveCloudConfig(config) {
+  if (config?.apiKey?.trim()) {
+    localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({
+      provider: 'jsonbin',
+      apiKey: config.apiKey.trim(),
+      binId: (config.binId || '').trim(),
+      autoSync: config.autoSync !== false,
+    }));
+  } else {
+    localStorage.removeItem(CLOUD_CONFIG_KEY);
+  }
+  updateSyncUI();
+  updateAuthCloudNote();
+}
+
+function isCloudEnabled() {
+  const c = loadCloudConfig();
+  return !!(c?.apiKey && c?.binId);
+}
+
+function emptyCloudState() {
+  return { version: 1, users: {}, workspaces: {}, updatedAt: null };
+}
+
+function formatCloudError(err) {
+  const msg = String(err?.message || err || '');
+  if (msg.includes('401') || /unauthorized/i.test(msg)) {
+    return 'API Key de JSONBin incorrecta. Cópiala de jsonbin.io → API Keys.';
+  }
+  if (msg.includes('404')) {
+    return 'Bin ID no encontrado. Pulsa "Crear nube" o revisa el ID.';
+  }
+  if (/failed to fetch|network/i.test(msg)) {
+    return 'Sin conexión o JSONBin no responde.';
+  }
+  return msg || 'Error de sincronización';
+}
+
+async function jsonbinRequest(path, method, body) {
+  const c = loadCloudConfig();
+  if (!c?.apiKey) throw new Error('Configura la API Key de JSONBin');
+  const res = await fetch(`https://api.jsonbin.io/v3${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': c.apiKey,
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const json = await res.json();
+      detail = json.message || json.error || '';
+    } catch { /* ignore */ }
+    throw new Error(detail || `JSONBin error ${res.status}`);
+  }
+  if (res.status === 204) return {};
+  return res.json();
+}
+
+async function loadCloudState(force) {
+  if (!isCloudEnabled()) return emptyCloudState();
+  if (!force && state.cloudStateCache && Date.now() - state.cloudStateCacheAt < 4000) {
+    return state.cloudStateCache;
+  }
+  const c = loadCloudConfig();
+  const res = await jsonbinRequest(`/b/${c.binId}/latest`, 'GET');
+  const cloud = res.record && typeof res.record === 'object' ? res.record : emptyCloudState();
+  if (!cloud.users) cloud.users = {};
+  if (!cloud.workspaces) cloud.workspaces = {};
+  state.cloudStateCache = cloud;
+  state.cloudStateCacheAt = Date.now();
+  return cloud;
+}
+
+async function saveCloudState(cloud) {
+  const c = loadCloudConfig();
+  cloud.updatedAt = new Date().toISOString();
+  if (!c.binId) {
+    const created = await jsonbinRequest('/b', 'POST', cloud);
+    const binId = created.metadata?.id || created.id;
+    if (!binId) throw new Error('No se pudo crear la nube en JSONBin');
+    saveCloudConfig({ ...c, binId });
+  } else {
+    await jsonbinRequest(`/b/${c.binId}`, 'PUT', cloud);
+  }
+  state.cloudStateCache = cloud;
+  state.cloudStateCacheAt = Date.now();
+  return loadCloudConfig().binId;
+}
+
+async function bootstrapCloudConfig() {
+  if (isCloudEnabled()) {
+    updateAuthCloudNote();
+    return true;
+  }
+  const urls = ['sync-config.json', './sync-config.json'];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const config = await res.json();
+      if (config.apiKey && config.binId) {
+        saveCloudConfig({
+          apiKey: config.apiKey,
+          binId: config.binId,
+          autoSync: config.autoSync !== false,
+        });
+        return true;
+      }
+    } catch { /* no config file */ }
+  }
+  updateAuthCloudNote();
+  return false;
+}
+
+function updateAuthCloudNote() {
+  const el = $('auth-cloud-note');
+  if (!el) return;
+  el.textContent = isCloudEnabled()
+    ? '☁️ Nube activa: crea cuenta o inicia sesión — tu mapa se sincroniza entre dispositivos.'
+    : '☁️ Configura JSONBin en ☁️ Sync para usar la misma cuenta en PC y móvil. Sin nube, todo queda en este navegador.';
+}
+
+function workspaceStorageKey(username) {
+  return `mf_workspace_${(username || '').toLowerCase()}`;
+}
+
+async function registerUserCloud(user, password, displayName) {
+  const err = validateUsername(user);
+  if (err) throw new Error(err);
+  if ((password || '').length < 6) throw new Error('Contraseña mínimo 6 caracteres');
+
+  const cloud = await loadCloudState(true);
+  if (cloud.users[user]) throw new Error('Ese usuario ya existe en la nube');
+
+  const salt = crypto.randomUUID();
+  const hash = await hashPassword(password, salt);
+  const record = { salt, hash, displayName, createdAt: Date.now() };
+  cloud.users[user] = record;
+
+  const localWs = localStorage.getItem(workspaceStorageKey(user));
+  if (localWs) {
+    try { cloud.workspaces[user] = JSON.parse(localWs); } catch { /* ignore */ }
+  }
+
+  await saveCloudState(cloud);
+
+  const reg = getUsersRegistry();
+  reg[user] = record;
+  saveUsersRegistry(reg);
+  return user;
+}
+
+async function loginUserCloud(user, password) {
+  const cloud = await loadCloudState(true);
+  const rec = cloud.users[user];
+  if (!rec) {
+    throw new Error('Usuario no encontrado en la nube. Créalo aquí o súbelo desde ☁️ Sync.');
+  }
+  const hash = await hashPassword(password, rec.salt);
+  if (hash !== rec.hash) throw new Error('Contraseña incorrecta');
+
+  const reg = getUsersRegistry();
+  reg[user] = rec;
+  saveUsersRegistry(reg);
+
+  if (cloud.workspaces[user]) {
+    localStorage.setItem(workspaceStorageKey(user), JSON.stringify(cloud.workspaces[user]));
+  }
+  return user;
+}
+
+async function uploadLocalAccountToCloud(password) {
+  const user = getCurrentUser();
+  if (!user) throw new Error('Inicia sesión primero');
+  if (!isCloudEnabled()) throw new Error('Configura JSONBin en ☁️ Sync');
+
+  const reg = getUsersRegistry()[user];
+  if (!reg) throw new Error('No hay cuenta local');
+  const hash = await hashPassword(password, reg.salt);
+  if (hash !== reg.hash) throw new Error('Contraseña incorrecta');
+
+  const cloud = await loadCloudState(true);
+  if (cloud.users[user]) throw new Error('Esa cuenta ya está en la nube. Solo inicia sesión.');
+
+  cloud.users[user] = {
+    salt: reg.salt,
+    hash: reg.hash,
+    displayName: reg.displayName || user,
+    createdAt: reg.createdAt || Date.now(),
+  };
+  const wsRaw = localStorage.getItem(getWorkspaceKey());
+  if (wsRaw) {
+    try { cloud.workspaces[user] = JSON.parse(wsRaw); } catch { /* ignore */ }
+  }
+  await saveCloudState(cloud);
+}
+
+async function pushUserWorkspaceToCloud(silent = false) {
+  const user = getCurrentUser();
+  if (!user || !isCloudEnabled()) return;
+  const data = serializeWorkspace();
+  const cloud = await loadCloudState(true);
+  cloud.workspaces[user] = data;
+  await saveCloudState(cloud);
+  state.lastCloudTime = data.savedAt;
+  if (!silent) setStatus($('sync-status'), '✓ Mapa subido a JSONBin', 'ok');
+}
+
+async function pullUserWorkspaceFromCloud(forceApply = false) {
+  const user = getCurrentUser();
+  if (!user || !isCloudEnabled()) return false;
+
+  const cloud = await loadCloudState(true);
+  const cloudWs = cloud.workspaces[user];
+  if (!cloudWs?.nodes?.length) return false;
+
+  let localData = null;
+  const localRaw = localStorage.getItem(getWorkspaceKey());
+  if (localRaw) {
+    try { localData = JSON.parse(localRaw); } catch { /* ignore */ }
+  }
+
+  const localTime = localData?.savedAt || 0;
+  const cloudTime = cloudWs.savedAt || 0;
+
+  if (forceApply || cloudTime > localTime) {
+    state.history.locking = true;
+    deserializeWorkspace(cloudWs);
+    localStorage.setItem(getWorkspaceKey(), JSON.stringify(cloudWs));
+    state.history.locking = false;
+    state.lastCloudTime = cloudTime;
+    setStatus($('sync-status'), `✓ Mapa sincronizado · ${new Date(cloudTime).toLocaleTimeString('es-ES')}`, 'ok');
+    return true;
+  }
+  if (localTime > cloudTime) {
+    await pushUserWorkspaceToCloud(true);
+  }
+  return false;
+}
+
+function startAutoCloudSync() {
+  stopAutoCloudSync();
+  const cfg = loadCloudConfig();
+  if (!cfg?.autoSync || !isCloudEnabled() || !getCurrentUser()) return;
+  state.cloudSyncTimer = setInterval(() => {
+    pullUserWorkspaceFromCloud(false).catch(() => {});
+  }, 25000);
+}
+
+function stopAutoCloudSync() {
+  if (state.cloudSyncTimer) clearInterval(state.cloudSyncTimer);
+  state.cloudSyncTimer = null;
+}
+
+async function testJsonBinConnection() {
+  if (!loadCloudConfig()?.apiKey) throw new Error('Pega tu API Key de JSONBin');
+  const c = loadCloudConfig();
+  if (c.binId) {
+    await loadCloudState(true);
+    return c.binId;
+  }
+  const test = emptyCloudState();
+  test.ping = Date.now();
+  await jsonbinRequest('/b', 'POST', test);
+  return true;
+}
+
+async function createJsonBinCloud() {
+  const apiKey = $('jsonbin-api-key')?.value.trim();
+  if (!apiKey) throw new Error('Pega tu API Key primero');
+  saveCloudConfig({
+    apiKey,
+    binId: $('jsonbin-bin-id')?.value.trim() || '',
+    autoSync: $('jsonbin-auto-sync')?.checked !== false,
+  });
+  const cloud = emptyCloudState();
+  cloud.ping = Date.now();
+  const binId = await saveCloudState(cloud);
+  $('jsonbin-bin-id').value = binId || loadCloudConfig().binId;
+  updateSyncUI();
+  return binId;
+}
+
 // ─── Autenticación de usuarios ───────────────────────────────
 function getUsersRegistry() {
   try { return JSON.parse(localStorage.getItem(USERS_REGISTRY_KEY) || '{}'); }
@@ -1318,10 +1652,17 @@ function validateUsername(name) {
 }
 
 async function registerUser(username, password) {
+  const user = username.trim().toLowerCase();
+  if (isCloudEnabled()) {
+    try {
+      return await registerUserCloud(user, password, username.trim());
+    } catch (e) {
+      throw new Error(formatCloudError(e));
+    }
+  }
   const err = validateUsername(username);
   if (err) throw new Error(err);
   if ((password || '').length < 6) throw new Error('Contraseña mínimo 6 caracteres');
-  const user = username.trim().toLowerCase();
   const reg = getUsersRegistry();
   if (reg[user]) throw new Error('Ese usuario ya existe');
   const salt = crypto.randomUUID();
@@ -1333,6 +1674,19 @@ async function registerUser(username, password) {
 
 async function loginUser(username, password) {
   const user = (username || '').trim().toLowerCase();
+  if (isCloudEnabled()) {
+    try {
+      return await loginUserCloud(user, password);
+    } catch (cloudErr) {
+      const reg = getUsersRegistry();
+      const rec = reg[user];
+      if (rec) {
+        const hash = await hashPassword(password, rec.salt);
+        if (hash === rec.hash) return user;
+      }
+      throw new Error(formatCloudError(cloudErr));
+    }
+  }
   const reg = getUsersRegistry();
   const rec = reg[user];
   if (!rec) throw new Error('Usuario no encontrado');
@@ -1352,6 +1706,7 @@ function setAuthSession(username) {
 
 function logoutUser() {
   stopCollabPolling();
+  stopAutoCloudSync();
   sessionStorage.removeItem(SESSION_KEY);
   document.body.classList.remove('authenticated');
   $('auth-screen').style.display = 'flex';
@@ -1675,7 +2030,11 @@ function saveWorkspace() {
     const when = new Date(data.savedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     setStatus($('sync-local-status'), `✓ Guardado local · ${when}`, 'ok');
     state.lastCloudTime = data.savedAt;
-    if (state.syncBlobId) pushToCloud(true);
+    if (isCloudEnabled() && getCurrentUser()) {
+      pushUserWorkspaceToCloud(true).catch(e => console.warn('JSONBin push:', e));
+    } else if (state.syncBlobId) {
+      pushToCloud(true);
+    }
   } catch (e) {
     console.warn('Error guardando:', e);
   }
@@ -1692,9 +2051,21 @@ function loadLocalWorkspace() {
 }
 
 function updateSyncUI() {
+  const cfg = loadCloudConfig();
+  if ($('jsonbin-api-key')) $('jsonbin-api-key').value = cfg?.apiKey || '';
+  if ($('jsonbin-bin-id')) $('jsonbin-bin-id').value = cfg?.binId || '';
+  if ($('jsonbin-auto-sync')) $('jsonbin-auto-sync').checked = cfg?.autoSync !== false;
   $('sync-blob-id').value = state.syncBlobId || '';
-  if (state.syncBlobId) {
-    setStatus($('sync-status'), `Conectado · ID: ${state.syncBlobId}`, 'ok');
+
+  if (isCloudEnabled()) {
+    const user = getCurrentUser();
+    setStatus($('sync-status'), user
+      ? `☁️ JSONBin activo · @${user} sincronizado`
+      : `☁️ JSONBin activo · Bin ${cfg.binId}`, 'ok');
+  } else if (state.syncBlobId) {
+    setStatus($('sync-status'), `Colaboración · ID: ${state.syncBlobId}`, 'ok');
+  } else if (!$('sync-status')?.classList.contains('loading')) {
+    setStatus($('sync-status'), 'Configura JSONBin para sincronizar tu cuenta', '');
   }
 }
 
@@ -3890,6 +4261,77 @@ $('btn-text-to-map').addEventListener('click', () => {
   applyGeneratedMap(text, $('text-status'), $('merge-map-text').checked);
 });
 
+$('btn-jsonbin-save').addEventListener('click', () => {
+  const apiKey = $('jsonbin-api-key').value.trim();
+  if (!apiKey) { setStatus($('sync-status'), 'Pega la API Key de JSONBin', 'error'); return; }
+  saveCloudConfig({
+    apiKey,
+    binId: $('jsonbin-bin-id').value.trim(),
+    autoSync: $('jsonbin-auto-sync').checked,
+  });
+  setStatus($('sync-status'), '✓ Configuración JSONBin guardada', 'ok');
+  if (getCurrentUser()) startAutoCloudSync();
+});
+
+$('btn-jsonbin-create').addEventListener('click', async () => {
+  setStatus($('sync-status'), 'Creando nube en JSONBin...', 'loading');
+  try {
+    const binId = await createJsonBinCloud();
+    setStatus($('sync-status'), `✓ Nube creada · Bin ID: ${binId}`, 'ok');
+  } catch (e) {
+    setStatus($('sync-status'), formatCloudError(e), 'error');
+  }
+});
+
+$('btn-jsonbin-test').addEventListener('click', async () => {
+  setStatus($('sync-status'), 'Probando conexión...', 'loading');
+  try {
+    saveCloudConfig({
+      apiKey: $('jsonbin-api-key').value.trim(),
+      binId: $('jsonbin-bin-id').value.trim(),
+      autoSync: $('jsonbin-auto-sync').checked,
+    });
+    await testJsonBinConnection();
+    setStatus($('sync-status'), '✓ Conexión con JSONBin correcta', 'ok');
+  } catch (e) {
+    setStatus($('sync-status'), formatCloudError(e), 'error');
+  }
+});
+
+$('btn-jsonbin-push').addEventListener('click', async () => {
+  if (!getCurrentUser()) { setStatus($('sync-status'), 'Inicia sesión primero', 'error'); return; }
+  setStatus($('sync-status'), 'Subiendo mapa...', 'loading');
+  try {
+    await pushUserWorkspaceToCloud(false);
+  } catch (e) {
+    setStatus($('sync-status'), formatCloudError(e), 'error');
+  }
+});
+
+$('btn-jsonbin-pull').addEventListener('click', async () => {
+  if (!getCurrentUser()) { setStatus($('sync-status'), 'Inicia sesión primero', 'error'); return; }
+  setStatus($('sync-status'), 'Descargando mapa...', 'loading');
+  try {
+    const ok = await pullUserWorkspaceFromCloud(true);
+    if (!ok) setStatus($('sync-status'), 'No hay mapa en la nube para este usuario', 'error');
+  } catch (e) {
+    setStatus($('sync-status'), formatCloudError(e), 'error');
+  }
+});
+
+$('btn-jsonbin-upload-account').addEventListener('click', async () => {
+  const pass = $('jsonbin-upload-pass').value;
+  if (!pass) { setStatus($('sync-status'), 'Escribe tu contraseña', 'error'); return; }
+  setStatus($('sync-status'), 'Subiendo cuenta a la nube...', 'loading');
+  try {
+    await uploadLocalAccountToCloud(pass);
+    $('jsonbin-upload-pass').value = '';
+    setStatus($('sync-status'), '✓ Cuenta y mapa subidos. Ya puedes entrar desde otros dispositivos.', 'ok');
+  } catch (e) {
+    setStatus($('sync-status'), formatCloudError(e), 'error');
+  }
+});
+
 $('btn-create-sync').addEventListener('click', createCloudSync);
 $('btn-connect-sync').addEventListener('click', async () => {
   try {
@@ -4024,7 +4466,14 @@ async function loadUserMap() {
   render();
   updateSyncUI();
 
-  if (state.syncBlobId) {
+  if (isCloudEnabled() && getCurrentUser()) {
+    try {
+      await pullUserWorkspaceFromCloud(false);
+      startAutoCloudSync();
+    } catch (e) {
+      setStatus($('sync-status'), formatCloudError(e), 'error');
+    }
+  } else if (state.syncBlobId) {
     try {
       const res = await fetch(`https://jsonblob.com/api/jsonBlob/${state.syncBlobId}`);
       if (res.ok) {
@@ -4033,13 +4482,13 @@ async function loadUserMap() {
         const cloudTime = cloudData?.savedAt || 0;
         if (cloudTime > localTime) {
           deserializeWorkspace(cloudData);
-          setStatus($('sync-status'), '✓ Mapa actualizado desde la nube', 'ok');
+          setStatus($('sync-status'), '✓ Mapa actualizado (colaboración)', 'ok');
         } else if (cloudTime < localTime) {
           await pushToCloud(true);
         }
       }
     } catch {
-      setStatus($('sync-status'), 'Sync local activo. Sin conexión a la nube.', 'error');
+      setStatus($('sync-status'), 'Colaboración: sin conexión', 'error');
     }
   }
 
@@ -4054,7 +4503,9 @@ async function loadUserMap() {
 async function bootApp() {
   loadUserSyncId();
   stopCollabPolling();
+  stopAutoCloudSync();
   if ($('collab-enabled')) $('collab-enabled').checked = false;
+  updateSyncUI();
 
   if (!appCoreReady) {
     appCoreReady = true;
@@ -4073,7 +4524,7 @@ async function bootApp() {
 }
 
 setupAuthUI();
-tryAutoLogin();
+bootstrapCloudConfig().then(() => tryAutoLogin());
 </script>
 </body>
 </html>
