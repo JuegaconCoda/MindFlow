@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#2d6a4f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="MindFlow" />
@@ -52,14 +52,38 @@
       border-bottom: 1px solid var(--border);
       z-index: 10;
     }
-    .mobile-menu-btn {
+    .header-quick {
       display: none;
-      min-width: 44px;
-      min-height: 44px;
-      padding: 0;
-      justify-content: center;
-      font-size: 1.2rem;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
     }
+    .mobile-menu-btn,
+    .mobile-panel-btn {
+      display: none;
+      min-width: 48px;
+      min-height: 48px;
+      padding: 0 16px;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .mobile-panel-btn {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      flex: 1;
+      max-width: 160px;
+    }
+    .mobile-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 38;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body.is-mobile.panel-open .mobile-backdrop { display: block; }
     .logo {
       display: flex;
       align-items: center;
@@ -530,109 +554,236 @@
       body { overflow: visible; height: auto; }
     }
     @media (max-width: 900px) {
-      .logo { font-size: 1rem; }
+      body.is-mobile {
+        font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+      }
+      .logo {
+        font-size: 1.2rem;
+        flex: 1;
+        min-width: 0;
+      }
       .logo .offline-badge { display: none; }
-      .mobile-menu-btn { display: inline-flex; }
+      header {
+        padding: 10px 12px;
+        padding-top: max(10px, env(safe-area-inset-top));
+        gap: 10px;
+        flex-wrap: nowrap;
+      }
+      header.mobile-menu-open { flex-wrap: wrap; }
+      .header-quick { display: flex; }
+      .mobile-menu-btn,
+      .mobile-panel-btn { display: inline-flex; }
       .header-actions {
         display: none;
         width: 100%;
         order: 3;
-        gap: 6px;
+        gap: 8px;
+        padding-bottom: max(4px, env(safe-area-inset-bottom));
       }
       header.mobile-menu-open .header-actions { display: flex; }
+      .header-actions #btn-toggle-sidebar { display: none; }
       .header-actions button,
       .header-actions select,
       .header-actions .user-badge {
         flex: 1 1 calc(50% - 4px);
-        min-height: 44px;
+        min-height: 50px;
         justify-content: center;
-        font-size: .78rem;
+        font-size: 0.95rem;
+        padding: 12px 10px;
       }
+      .header-actions select { padding: 12px; }
       .header-actions .user-badge {
         flex: 1 1 100%;
         text-align: center;
         max-width: none;
+        font-size: 0.95rem;
+        padding: 10px;
       }
-      main { flex-direction: column-reverse; min-height: 0; }
-      .sidebar-shell {
-        width: 100% !important;
-        height: var(--sidebar-h, 300px);
+      main {
         flex-direction: column;
-        max-height: 55vh;
+        min-height: 0;
+        position: relative;
+      }
+      .canvas-wrap {
+        flex: 1;
+        order: 1;
+        min-height: 0;
+        width: 100%;
+      }
+      .sidebar-shell {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 42;
+        width: 100% !important;
+        height: min(86dvh, 720px) !important;
+        max-height: 86dvh;
+        flex-direction: column;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55);
+        transform: translateY(0);
+        transition: transform 0.28s ease;
+        overflow: hidden;
       }
       main.sidebar-collapsed .sidebar-shell {
+        transform: translateY(100%);
         height: 0 !important;
-        width: 100% !important;
         max-height: 0;
+        pointer-events: none;
       }
-      aside { border-right: none; border-top: 1px solid var(--border); }
-      .sidebar-resizer {
-        width: 100%;
-        height: 14px;
-        cursor: row-resize;
-        order: -1;
+      aside {
+        border-right: none;
+        border-top: none;
+        flex: 1;
+        min-height: 0;
       }
-      .sidebar-resizer::after {
-        width: 48px;
-        height: 4px;
-      }
+      .sidebar-resizer { display: none; }
       .sidebar-toggle {
-        left: 50%;
-        top: auto;
-        bottom: calc(var(--sidebar-h, 300px) - 1px);
+        position: fixed;
+        left: 50% !important;
+        top: auto !important;
+        bottom: max(18px, env(safe-area-inset-bottom));
         transform: translateX(-50%);
-        width: 64px;
-        height: 28px;
-        border-radius: 10px 10px 0 0;
-        border-bottom: none;
+        z-index: 35;
+        width: auto;
+        min-width: 150px;
+        height: 50px;
+        padding: 0 22px;
+        border-radius: 25px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: 2px solid var(--accent2);
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
       }
-      main.sidebar-collapsed .sidebar-toggle {
-        bottom: env(safe-area-inset-bottom, 0);
-        left: 50%;
-        transform: translateX(-50%);
+      main:not(.sidebar-collapsed) .sidebar-toggle {
+        bottom: calc(min(86dvh, 720px) + 8px);
+        z-index: 43;
+        background: var(--surface2);
+        color: var(--accent2);
+        min-width: 120px;
       }
-      .canvas-wrap { min-height: 38vh; flex: 1; }
       .panel-tabs {
         overflow-x: auto;
         flex-wrap: nowrap;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: none;
+        flex-shrink: 0;
       }
       .panel-tabs::-webkit-scrollbar { display: none; }
       .panel-tabs button {
         flex: 0 0 auto;
-        min-width: 68px;
-        padding: 12px 10px;
-        font-size: .72rem;
+        min-width: 88px;
+        padding: 16px 14px;
+        font-size: 0.92rem;
+        min-height: 52px;
       }
-      .panel { padding: 12px; gap: 10px; }
-      input, select, textarea { font-size: 16px; }
+      .panel {
+        padding: 16px;
+        gap: 14px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .card { padding: 18px; }
+      .card h3 {
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+      }
+      label { font-size: 0.95rem; margin-bottom: 6px; }
+      .hint { font-size: 0.88rem; line-height: 1.5; }
+      button, .btn {
+        font-size: 1rem;
+        padding: 14px 18px;
+        min-height: 50px;
+        border-radius: 10px;
+      }
+      input, select, textarea {
+        font-size: 16px;
+        padding: 14px 14px;
+        min-height: 50px;
+        border-radius: 10px;
+      }
+      textarea { min-height: 130px; }
+      .status-bar {
+        font-size: 0.92rem;
+        min-height: 48px;
+        padding: 12px 14px;
+        line-height: 1.45;
+      }
+      .dropzone { padding: 32px 18px; }
+      .dropzone .icon { font-size: 2.6rem; }
+      .recorder { padding: 20px; gap: 16px; }
+      .rec-btn {
+        width: 92px;
+        height: 92px;
+        font-size: 2.2rem;
+      }
+      .timer { font-size: 1.6rem; }
+      .transcript-preview,
+      .summary-content {
+        font-size: 0.95rem;
+        line-height: 1.55;
+      }
       .auth-card {
-        padding: 20px 16px;
+        padding: 24px 18px;
         max-height: 92dvh;
         overflow-y: auto;
+        width: min(440px, 100%);
       }
+      .auth-card h1 { font-size: 1.85rem; }
+      .auth-sub { font-size: 1rem; }
+      .auth-tabs button { min-height: 50px; font-size: 1rem; }
+      .auth-note, .auth-cloud-setup { font-size: 0.9rem; }
       .modal {
         width: min(480px, 96vw);
         max-height: 90dvh;
         overflow-y: auto;
         margin: 12px;
+        padding: 20px;
       }
+      .modal h2 { font-size: 1.2rem; }
+      .modal-actions button { min-height: 50px; }
       .toolbar-float {
+        bottom: max(76px, calc(env(safe-area-inset-bottom) + 68px));
+        padding: 8px 12px;
+        gap: 8px;
+      }
+      main:not(.sidebar-collapsed) .toolbar-float {
         bottom: max(14px, env(safe-area-inset-bottom));
-        padding: 4px 8px;
       }
       .toolbar-float button {
-        width: 42px;
-        height: 42px;
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+      }
+      .zoom-label {
+        font-size: 0.95rem;
+        min-width: 54px;
       }
       .node-popup {
-        max-width: min(240px, 88vw);
+        min-width: min(280px, 90vw);
+        padding: 12px;
+        gap: 8px;
       }
+      .node-popup .popup-title {
+        font-size: 0.95rem;
+        max-width: none;
+      }
+      .node-popup button {
+        font-size: 1rem;
+        padding: 14px;
+        min-height: 50px;
+      }
+      .color-swatch { width: 36px; height: 36px; }
+      .version-list { font-size: 0.92rem; }
+      .version-item { padding: 12px; }
     }
   </style>
 </head>
 <body>
+<div class="mobile-backdrop" id="mobile-backdrop" aria-hidden="true"></div>
 
 <!-- Pantalla de login -->
 <div class="auth-screen" id="auth-screen">
@@ -691,7 +842,10 @@
 
 <header>
   <div class="logo">🧠 Mind<span>Flow</span> <span class="offline-badge" id="offline-badge">Online</span></div>
-  <button type="button" class="mobile-menu-btn" id="btn-mobile-menu" title="Menú" aria-label="Menú">☰</button>
+  <div class="header-quick">
+    <button type="button" class="mobile-panel-btn" id="btn-mobile-panel" title="Abrir panel">☰ Panel</button>
+    <button type="button" class="mobile-menu-btn" id="btn-mobile-menu" title="Más opciones" aria-label="Más opciones">⋯</button>
+  </div>
   <div class="header-actions" id="header-actions">
     <span class="user-badge" id="user-badge" title="Usuario activo">—</span>
     <button id="btn-logout" title="Cerrar sesión">🚪 Salir</button>
@@ -2386,16 +2540,33 @@ function createNode(label, x, y, parentId = null, depth = 0, opts = {}) {
   return node;
 }
 
+function isMobileLayout() {
+  return window.innerWidth <= 900;
+}
+
+function getNodeMetrics() {
+  const mobile = isMobileLayout();
+  return {
+    fontSize: mobile ? 17 : 14,
+    lineHeight: mobile ? 24 : 20,
+    maxW: mobile ? 210 : 180,
+    padX: mobile ? 34 : 28,
+    padY: mobile ? 18 : 16,
+  };
+}
+
 function measureNode(node) {
-  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
-  const lines = wrapText(node.label, 180);
+  const m = getNodeMetrics();
+  ctx.font = `600 ${m.fontSize}px Segoe UI, system-ui, sans-serif`;
+  const lines = wrapText(node.label, m.maxW);
   node.lines = lines;
-  node.w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 28;
-  node.h = lines.length * 20 + 16;
+  node.w = Math.max(...lines.map(l => ctx.measureText(l).width)) + m.padX;
+  node.h = lines.length * m.lineHeight + m.padY;
 }
 
 function wrapText(text, maxW) {
-  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+  const m = getNodeMetrics();
+  ctx.font = `600 ${m.fontSize}px Segoe UI, system-ui, sans-serif`;
   const words = text.split(/\s+/);
   const lines = [];
   let line = '';
@@ -2667,7 +2838,8 @@ function drawEdge(from, to, isCrossLink) {
 }
 
 function drawNode(n) {
-  const rx = 10;
+  const m = getNodeMetrics();
+  const rx = isMobileLayout() ? 12 : 10;
   const x = n.x - n.w / 2;
   const y = n.y - n.h / 2;
   const sel = n.id === state.selectedId;
@@ -2699,14 +2871,14 @@ function drawNode(n) {
   ctx.shadowOffsetY = 0;
 
   ctx.fillStyle = '#fff';
-  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+  ctx.font = `600 ${m.fontSize}px Segoe UI, system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const startY = n.y - ((n.lines.length - 1) * 20) / 2;
-  n.lines.forEach((line, i) => ctx.fillText(line, n.x, startY + i * 20));
+  const startY = n.y - ((n.lines.length - 1) * m.lineHeight) / 2;
+  n.lines.forEach((line, i) => ctx.fillText(line, n.x, startY + i * m.lineHeight));
 
   if (n.tags?.length) {
-    ctx.font = '500 9px Segoe UI, system-ui, sans-serif';
+    ctx.font = `500 ${isMobileLayout() ? 11 : 9}px Segoe UI, system-ui, sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.fillText('🏷 ' + n.tags.slice(0, 2).join(', '), n.x, y + n.h - 6);
   }
@@ -3984,18 +4156,36 @@ function checkReminders() {
   });
 }
 
+function updateMobileUI(collapsed) {
+  const mobile = isMobileLayout();
+  document.body.classList.toggle('is-mobile', mobile);
+  document.body.classList.toggle('panel-open', mobile && !collapsed);
+  const toggle = $('sidebar-toggle');
+  const panelBtn = $('btn-mobile-panel');
+  if (mobile) {
+    const open = !collapsed;
+    if (toggle) toggle.textContent = open ? '▼ Cerrar' : '☰ Panel';
+    if (panelBtn) panelBtn.textContent = open ? '▼ Cerrar' : '☰ Panel';
+  } else if (toggle) {
+    toggle.textContent = collapsed ? '▶' : '◀';
+    document.body.classList.remove('panel-open');
+  }
+}
+
 function setupSidebar() {
   const SIDEBAR_PREFS_KEY = 'mf_sidebar_prefs';
   const main = $('main-layout');
   const load = () => {
     try {
       const p = JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY) || '{}');
+      const mobile = window.innerWidth <= 900;
+      const defaultH = mobile ? Math.round(window.innerHeight * 0.55) : 300;
       return {
         width: Math.min(Math.max(p.width || 340, 220), window.innerWidth - 200),
-        height: Math.min(Math.max(p.height || 300, 120), window.innerHeight - 150),
-        collapsed: !!p.collapsed,
+        height: Math.min(Math.max(p.height || defaultH, 120), window.innerHeight - 150),
+        collapsed: mobile ? (p.collapsed !== false) : !!p.collapsed,
       };
-    } catch { return { width: 340, height: 300, collapsed: false }; }
+    } catch { return { width: 340, height: 300, collapsed: window.innerWidth <= 900 }; }
   };
   const save = (p) => localStorage.setItem(SIDEBAR_PREFS_KEY, JSON.stringify(p));
   let prefs = load();
@@ -4014,15 +4204,19 @@ function setupSidebar() {
     setVars(p);
     main.classList.toggle('sidebar-collapsed', !!p.collapsed);
     const btn = $('sidebar-toggle');
-    btn.textContent = p.collapsed ? '▶' : '◀';
     btn.title = p.collapsed ? 'Mostrar panel de opciones' : 'Ocultar panel de opciones';
+    updateMobileUI(!!p.collapsed);
   };
 
   const toggleSidebar = () => {
     prefs.collapsed = !prefs.collapsed;
     apply(prefs);
     save(prefs);
-    setTimeout(resizeCanvas, 230);
+    setTimeout(() => {
+      resizeCanvas();
+      if (isMobileLayout()) state.nodes.forEach(measureNode);
+      render();
+    }, 280);
   };
 
   apply(prefs);
@@ -4081,13 +4275,22 @@ function setupSidebar() {
 
   $('sidebar-toggle').addEventListener('click', toggleSidebar);
   $('btn-toggle-sidebar').addEventListener('click', toggleSidebar);
+  $('btn-mobile-panel')?.addEventListener('click', toggleSidebar);
+  $('mobile-backdrop')?.addEventListener('click', () => {
+    if (!prefs.collapsed && isMobileLayout()) toggleSidebar();
+  });
 
   window.addEventListener('resize', () => {
     if (prefs.width > window.innerWidth - 200) {
       prefs.width = Math.max(220, window.innerWidth - 200);
       setVars(prefs);
     }
-    setTimeout(resizeCanvas, 100);
+    updateMobileUI(!!prefs.collapsed);
+    setTimeout(() => {
+      resizeCanvas();
+      if (isMobileLayout()) state.nodes.forEach(measureNode);
+      render();
+    }, 100);
   });
 }
 
@@ -4732,14 +4935,22 @@ async function bootApp() {
 
   resizeCanvas();
   await loadUserMap();
+  if (isMobileLayout()) {
+    state.nodes.forEach(measureNode);
+    render();
+    fitView();
+  }
   await refreshMicList();
   updateScriptSearchHint();
+  updateMobileUI($('main-layout')?.classList.contains('sidebar-collapsed'));
 }
 
 setupAuthUI();
 $('btn-mobile-menu')?.addEventListener('click', () => {
   document.querySelector('header')?.classList.toggle('mobile-menu-open');
 });
+
+document.body.classList.toggle('is-mobile', isMobileLayout());
 
 bootstrapCloudConfig().then(() => {
   syncCloudFieldsToUI();
