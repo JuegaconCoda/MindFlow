@@ -1,0 +1,4079 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2d6a4f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="MindFlow" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="shortcut icon" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>MindFlow — Mapas Mentales con Audio IA</title>
+  <style>
+    :root {
+      --bg: #07100c;
+      --surface: #0c1812;
+      --surface2: #122820;
+      --border: #1e4034;
+      --text: #e6f2eb;
+      --muted: #7fa892;
+      --accent: #2d6a4f;
+      --accent2: #52b788;
+      --accent-bright: #95d5b2;
+      --danger: #e07070;
+      --success: #52b788;
+      --warning: #c9a227;
+      --shadow: 0 8px 32px rgba(0,0,0,.5);
+      --radius: 12px;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 10;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .logo span { color: var(--accent2); }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    button, .btn {
+      font-family: inherit;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .85rem;
+      transition: all .15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:hover, .btn:hover { border-color: var(--accent2); background: #183028; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.primary:hover { filter: brightness(1.1); }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    main {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    .sidebar-shell {
+      display: flex;
+      flex-direction: row;
+      width: var(--sidebar-w, 340px);
+      min-width: 0;
+      flex-shrink: 0;
+      height: 100%;
+      transition: width .22s ease, height .22s ease;
+      overflow: visible;
+    }
+    main.sidebar-resizing .sidebar-shell {
+      transition: none;
+    }
+    main.sidebar-collapsed .sidebar-shell {
+      width: 0 !important;
+      border: none;
+    }
+    aside {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1;
+      min-width: 0;
+    }
+    .sidebar-resizer {
+      width: 12px;
+      flex-shrink: 0;
+      cursor: col-resize;
+      background: transparent;
+      position: relative;
+      touch-action: none;
+      z-index: 11;
+      margin-right: -4px;
+    }
+    .sidebar-resizer::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 48px;
+      border-radius: 4px;
+      background: var(--border);
+      transition: background .15s, height .15s;
+    }
+    .sidebar-resizer:hover::after,
+    .sidebar-resizer.dragging::after {
+      background: var(--accent2);
+      height: 72px;
+    }
+    .sidebar-toggle {
+      position: absolute;
+      left: calc(var(--sidebar-w, 340px) - 1px);
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 15;
+      width: 26px;
+      height: 64px;
+      padding: 0;
+      border-radius: 0 12px 12px 0;
+      border: 1px solid var(--accent2);
+      border-left: none;
+      background: var(--surface2);
+      color: var(--accent2);
+      font-size: .75rem;
+      cursor: pointer;
+      transition: left .22s ease, background .15s;
+      box-shadow: 2px 0 12px rgba(0,0,0,.35);
+    }
+    .sidebar-toggle:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    main.sidebar-collapsed .sidebar-toggle {
+      left: 0;
+      border-radius: 0 12px 12px 0;
+      border-left: 1px solid var(--accent2);
+      background: var(--accent);
+      color: #fff;
+    }
+    .canvas-wrap {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 30%, rgba(45,106,79,.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(82,183,136,.08) 0%, transparent 50%),
+        var(--bg);
+    }
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-tabs button {
+      flex: 1;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 12px;
+      border-bottom: 2px solid transparent;
+    }
+    .panel-tabs button.active {
+      border-bottom-color: var(--accent2);
+      color: var(--accent2);
+      background: var(--surface2);
+    }
+    .panel { display: none; flex: 1; overflow-y: auto; padding: 16px; flex-direction: column; gap: 14px; }
+    .panel.active { display: flex; }
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .card h3 {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    label { font-size: .82rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: .88rem;
+    }
+    textarea { min-height: 100px; resize: vertical; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .field { margin-bottom: 10px; }
+    .hint { font-size: .75rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent2);
+      background: rgba(82,183,136,.08);
+    }
+    .dropzone .icon { font-size: 2rem; margin-bottom: 8px; }
+    .recorder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+    .rec-btn {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 3px solid var(--danger);
+      background: rgba(255,107,107,.15);
+      font-size: 1.6rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .rec-btn.recording {
+      animation: pulse 1.2s infinite;
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,.5); }
+      50% { box-shadow: 0 0 0 14px rgba(255,107,107,0); }
+    }
+    .timer { font-family: monospace; font-size: 1.2rem; color: var(--accent2); }
+    .provider-badge {
+      display: inline-block;
+      font-size: .7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(81,207,102,.15);
+      color: var(--success);
+      margin-left: 6px;
+    }
+    .provider-badge.paid { background: rgba(252,196,25,.15); color: var(--warning); }
+    .status-bar {
+      font-size: .78rem;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      min-height: 36px;
+      line-height: 1.4;
+    }
+    .status-bar.loading { border-color: var(--accent); color: var(--accent2); }
+    .status-bar.error { border-color: var(--danger); color: var(--danger); }
+    .status-bar.ok { border-color: var(--success); color: var(--success); }
+    #mindmap-canvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    #mindmap-canvas.dragging { cursor: grabbing; }
+    .toolbar-float {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 6px 10px;
+      box-shadow: var(--shadow);
+    }
+    .toolbar-float button {
+      border-radius: 50%;
+      width: 38px; height: 38px;
+      padding: 0;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .zoom-label {
+      font-size: .78rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      min-width: 48px;
+      justify-content: center;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      width: min(480px, 92vw);
+      box-shadow: var(--shadow);
+    }
+    .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .transcript-preview {
+      max-height: 160px;
+      overflow-y: auto;
+      font-size: .82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .api-link { color: var(--accent2); text-decoration: none; }
+    .api-link:hover { text-decoration: underline; }
+    .summary-content {
+      max-height: 420px;
+      overflow-y: auto;
+      font-size: .88rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+    .modal.wide { width: min(620px, 94vw); }
+    .node-popup {
+      display: none;
+      position: absolute;
+      z-index: 20;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      box-shadow: var(--shadow);
+      transform: translateX(-50%);
+      min-width: 160px;
+    }
+    .node-popup .popup-title {
+      font-size: .72rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 0 4px 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .node-popup button {
+      width: 100%;
+      justify-content: center;
+      font-size: .8rem;
+      padding: 7px 10px;
+    }
+    .expand-badge {
+      position: absolute;
+      font-size: .65rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+      pointer-events: none;
+      z-index: 5;
+      white-space: nowrap;
+    }
+    .tag-chip {
+      display: inline-block;
+      font-size: .65rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(82,183,136,.2);
+      color: var(--accent-bright);
+      margin: 2px 2px 0 0;
+    }
+    .color-swatches { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .color-swatch {
+      width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent;
+      cursor: pointer; padding: 0;
+    }
+    .color-swatch.active, .color-swatch:hover { border-color: #fff; transform: scale(1.1); }
+    .diff-added { color: var(--success); }
+    .diff-removed { color: var(--danger); text-decoration: line-through; }
+    .diff-changed { color: var(--warning); }
+    .version-list { max-height: 140px; overflow-y: auto; font-size: .8rem; }
+    .version-item {
+      padding: 6px 8px; border-radius: 6px; cursor: pointer;
+      border: 1px solid transparent; margin-bottom: 4px;
+    }
+    .version-item:hover { background: var(--bg); border-color: var(--border); }
+    .offline-badge {
+      font-size: .72rem; padding: 3px 8px; border-radius: 20px;
+      background: rgba(82,183,136,.15); color: var(--accent2);
+    }
+    .offline-badge.offline { background: rgba(224,112,112,.15); color: var(--danger); }
+    .user-badge {
+      font-size: .78rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(108,92,231,.2);
+      color: #a29bfe;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auth-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(108,92,231,.15) 0%, transparent 45%),
+        radial-gradient(circle at 70% 80%, rgba(82,183,136,.12) 0%, transparent 45%),
+        var(--bg);
+      padding: 20px;
+    }
+    body.authenticated .auth-screen { display: none; }
+    .auth-card {
+      width: min(420px, 96vw);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .auth-card h1 { text-align: center; margin-bottom: 6px; font-size: 1.5rem; }
+    .auth-card h1 span { color: var(--accent2); }
+    .auth-sub { text-align: center; color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
+    .auth-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+    .auth-tabs button { flex: 1; justify-content: center; }
+    .auth-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .auth-note {
+      font-size: .72rem;
+      color: var(--muted);
+      margin-top: 12px;
+      line-height: 1.5;
+      padding: 10px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    html[data-theme="ocean"] {
+      --bg:#071018; --surface:#0c1520; --surface2:#122030; --border:#1e3a55;
+      --accent:#1d6aa3; --accent2:#48cae4; --accent-bright:#90e0ef; --muted:#7a9aad;
+    }
+    html[data-theme="purple"] {
+      --bg:#0d0814; --surface:#151022; --surface2:#1e1630; --border:#3d2a55;
+      --accent:#6c5ce7; --accent2:#a29bfe; --accent-bright:#dfe6e9; --muted:#9a8fad;
+    }
+    html[data-theme="light"] {
+      --bg:#eef5f1; --surface:#fff; --surface2:#f0f7f3; --border:#c8ddd2;
+      --text:#1a2e24; --muted:#5a7a68; --accent:#2d6a4f; --accent2:#40916c;
+      --accent-bright:#1b4332;
+    }
+    html[data-theme="contrast"] {
+      --bg:#000; --surface:#111; --surface2:#1a1a1a; --border:#444;
+      --text:#fff; --muted:#aaa; --accent:#00ff88; --accent2:#00ff88;
+      --accent-bright:#fff;
+    }
+    @media print {
+      header, aside, .sidebar-shell, .sidebar-toggle, .sidebar-resizer, .toolbar-float, .node-popup { display: none !important; }
+      main { display: block !important; }
+      body { overflow: visible; height: auto; }
+    }
+    @media (max-width: 900px) {
+      main { flex-direction: column-reverse; }
+      .sidebar-shell {
+        width: 100% !important;
+        height: var(--sidebar-h, 300px);
+        flex-direction: column;
+      }
+      main.sidebar-collapsed .sidebar-shell {
+        height: 0 !important;
+        width: 100% !important;
+      }
+      aside { border-right: none; border-top: 1px solid var(--border); }
+      .sidebar-resizer {
+        width: 100%;
+        height: 10px;
+        cursor: row-resize;
+        order: -1;
+      }
+      .sidebar-resizer::after {
+        width: 48px;
+        height: 4px;
+      }
+      .sidebar-toggle {
+        left: 50%;
+        top: auto;
+        bottom: calc(var(--sidebar-h, 300px) - 1px);
+        transform: translateX(-50%);
+        width: 56px;
+        height: 22px;
+        border-radius: 10px 10px 0 0;
+        border-bottom: none;
+      }
+      main.sidebar-collapsed .sidebar-toggle {
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Pantalla de login -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <h1>🧠 Mind<span>Flow</span></h1>
+    <p class="auth-sub">Inicia sesión para guardar tu mapa y colaborar</p>
+    <div class="auth-tabs">
+      <button type="button" class="active" id="auth-tab-login">Iniciar sesión</button>
+      <button type="button" id="auth-tab-register">Crear cuenta</button>
+    </div>
+    <div id="auth-form-login">
+      <div class="field">
+        <label>Usuario</label>
+        <input type="text" id="login-user" autocomplete="username" placeholder="Tu nombre de usuario" />
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <button class="primary" id="btn-login" style="width:100%">Entrar</button>
+    </div>
+    <div id="auth-form-register" style="display:none">
+      <div class="field">
+        <label>Usuario (mín. 3 caracteres)</label>
+        <input type="text" id="reg-user" autocomplete="username" placeholder="ej: maria_garcia" />
+      </div>
+      <div class="field">
+        <label>Contraseña (mín. 6 caracteres)</label>
+        <input type="password" id="reg-pass" autocomplete="new-password" placeholder="••••••••" />
+      </div>
+      <div class="field">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="reg-pass2" autocomplete="new-password" placeholder="••••••••" />
+      </div>
+      <button class="primary" id="btn-register" style="width:100%">Crear cuenta</button>
+    </div>
+    <div class="status-bar" id="auth-status" style="margin-top:12px">Cada usuario tiene su propio mapa</div>
+    <p class="auth-note">
+      🔒 Las cuentas se guardan en este navegador. Para equipos en la nube (GitHub Pages), usa el mismo enlace + cuentas distintas. La colaboración en tiempo real usa el ID de sync compartido en ☁️ Sync.
+    </p>
+  </div>
+</div>
+
+<header>
+  <div class="logo">🧠 Mind<span>Flow</span> <span class="offline-badge" id="offline-badge">Online</span></div>
+  <div class="header-actions">
+    <span class="user-badge" id="user-badge" title="Usuario activo">—</span>
+    <button id="btn-logout" title="Cerrar sesión">🚪 Salir</button>
+    <button id="btn-toggle-sidebar" title="Mostrar / ocultar panel">☰ Panel</button>
+    <button id="btn-undo" title="Deshacer (Ctrl+Z)">↩</button>
+    <button id="btn-redo" title="Rehacer (Ctrl+Y)">↪</button>
+    <button id="btn-new" title="Nuevo mapa">＋ Nuevo</button>
+    <button id="btn-import" title="Importar archivo">📂 Importar</button>
+    <button id="btn-export" title="Exportar JSON">💾 JSON</button>
+    <button id="btn-png" title="Descargar imagen">🖼️ PNG</button>
+    <button id="btn-pdf" title="Exportar PDF">📄 PDF</button>
+    <button id="btn-summary" title="Resumen del mapa">📋 Resumen</button>
+    <button id="btn-script" title="Guion para video">🎬 Guion</button>
+    <select id="theme-select" title="Tema visual" style="width:auto;padding:8px">
+      <option value="green">🌿 Verde</option>
+      <option value="ocean">🌊 Océano</option>
+      <option value="purple">💜 Púrpura</option>
+      <option value="light">☀️ Claro</option>
+      <option value="contrast">◼ Contraste</option>
+    </select>
+    <button id="btn-install-pwa" title="Instalar app offline" style="display:none">📲 Instalar</button>
+    <button id="btn-settings" title="Configuración API">⚙️ APIs</button>
+  </div>
+</header>
+
+<main id="main-layout">
+  <div class="sidebar-shell" id="sidebar-shell">
+  <aside id="sidebar">
+    <div class="panel-tabs">
+      <button class="active" data-tab="audio">🎙️ Audio</button>
+      <button data-tab="text">📝 Texto</button>
+      <button data-tab="edit">✏️ Editar</button>
+      <button data-tab="summary">📄 Resumen</button>
+      <button data-tab="script">🎬 Guion</button>
+      <button data-tab="sync">☁️ Sync</button>
+      <button data-tab="tools">⚡ Más</button>
+    </div>
+
+    <div class="panel active" id="panel-audio">
+      <div class="card">
+        <h3>Proveedor de transcripción</h3>
+        <div class="field">
+          <select id="transcribe-provider">
+            <option value="browser">Navegador (Web Speech API) — Gratis</option>
+            <option value="gemini">Google Gemini — Gratis*</option>
+            <option value="openai">OpenAI Whisper — De pago</option>
+            <option value="groq">Groq Whisper — Gratis*</option>
+          </select>
+          <p class="hint" id="provider-hint">Reconocimiento de voz nativo del navegador. Funciona en Chrome/Edge.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Subir audio</h3>
+        <div class="dropzone" id="dropzone">
+          <div class="icon">🎵</div>
+          <div>Arrastra un archivo o haz clic</div>
+          <div class="hint">MP3, WAV, M4A, OGG, WEBM (máx. ~20 MB)</div>
+        </div>
+        <input type="file" id="audio-file" accept="audio/*" hidden />
+        <div id="audio-info" class="hint" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Grabar micrófono</h3>
+        <div class="field">
+          <label>Micrófono (PC)</label>
+          <select id="mic-select">
+            <option value="">Predeterminado del sistema</option>
+          </select>
+          <button id="btn-refresh-mics" style="width:100%;margin-top:6px">🔄 Detectar micrófonos</button>
+          <p class="hint">Pulsa detectar y permite acceso al micrófono para ver todos los dispositivos.</p>
+        </div>
+        <div class="recorder">
+          <button class="rec-btn" id="btn-record" title="Grabar">🎤</button>
+          <div class="timer" id="rec-timer">00:00</div>
+          <button id="btn-stop-record" disabled>⏹ Detener</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Dictado continuo</h3>
+        <p class="hint">Habla y el mapa se irá ampliando automáticamente con cada pausa.</p>
+        <button class="primary" id="btn-continuous-dictation" style="width:100%">🎙️ Iniciar dictado continuo</button>
+        <div class="status-bar" id="dictation-status" style="margin-top:8px">Detenido</div>
+        <div class="transcript-preview" id="dictation-log" style="margin-top:8px;max-height:80px;display:none"></div>
+      </div>
+
+      <button class="primary" id="btn-transcribe" style="width:100%">Transcribir audio</button>
+      <div class="status-bar" id="transcribe-status">Listo para transcribir</div>
+
+      <div class="card" id="transcript-card" style="display:none">
+        <h3>Transcripción</h3>
+        <div class="transcript-preview" id="transcript-text"></div>
+        <p class="hint" id="map-provider-hint" style="margin-top:8px"></p>
+        <button class="primary" id="btn-generate-map" style="width:100%;margin-top:10px">
+          ✨ Generar mapa mental con IA
+        </button>
+        <label class="hint" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+          <input type="checkbox" id="merge-map" />
+          Añadir al mapa actual (no reemplazar)
+        </label>
+        <div class="status-bar" id="map-status" style="margin-top:8px">El mapa usará el mismo proveedor que la transcripción</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-text">
+      <div class="card">
+        <h3>Texto directo</h3>
+        <textarea id="direct-text" placeholder="Pega aquí notas, ideas o una transcripción manual..."></textarea>
+        <button class="primary" id="btn-text-to-map" style="width:100%;margin-top:10px">
+          ✨ Crear mapa mental
+        </button>
+        <label class="hint" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer">
+          <input type="checkbox" id="merge-map-text" />
+          Añadir al mapa actual (no reemplazar)
+        </label>
+      </div>
+      <div class="status-bar" id="text-status">Escribe o pega texto para generar el mapa</div>
+    </div>
+
+    <div class="panel" id="panel-edit">
+      <div class="card">
+        <h3>Nodo seleccionado</h3>
+        <div class="field">
+          <label>Texto del nodo</label>
+          <input type="text" id="node-label" placeholder="Selecciona un nodo..." disabled />
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button id="btn-expand-node" class="primary" disabled>✨ Expandir tema</button>
+          <button id="btn-add-child" disabled>＋ Hijo</button>
+          <button id="btn-add-sibling" disabled>＋ Hermano</button>
+          <button id="btn-delete-node" class="danger" disabled>🗑 Eliminar</button>
+        </div>
+        <div class="status-bar" id="expand-status" style="margin-top:8px">Selecciona un nodo y pulsa Expandir, o tócalo en el mapa.</div>
+      </div>
+      <div class="card">
+        <h3>Etiquetas y color</h3>
+        <div class="field">
+          <label>Etiquetas (separadas por coma)</label>
+          <input type="text" id="node-tags" placeholder="urgente, idea, revisar..." disabled />
+        </div>
+        <div class="field">
+          <label>Color personalizado</label>
+          <div class="color-swatches" id="color-swatches">
+            <button class="color-swatch active" data-color="" title="Automático" style="background:linear-gradient(135deg,#2d6a4f,#52b788)"></button>
+            <button class="color-swatch" data-color="#2d6a4f" style="background:#2d6a4f"></button>
+            <button class="color-swatch" data-color="#40916c" style="background:#40916c"></button>
+            <button class="color-swatch" data-color="#52b788" style="background:#52b788"></button>
+            <button class="color-swatch" data-color="#e9c46a" style="background:#e9c46a"></button>
+            <button class="color-swatch" data-color="#e07070" style="background:#e07070"></button>
+            <button class="color-swatch" data-color="#74b9ff" style="background:#74b9ff"></button>
+            <button class="color-swatch" data-color="#a29bfe" style="background:#a29bfe"></button>
+          </div>
+          <input type="color" id="node-color-picker" value="#52b788" style="margin-top:8px;height:36px;padding:2px" disabled />
+        </div>
+        <button id="btn-apply-node-style" disabled>Aplicar estilo</button>
+      </div>
+      <div class="card">
+        <h3>Recordatorio</h3>
+        <div class="field">
+          <label>Fecha y hora</label>
+          <input type="datetime-local" id="node-reminder-dt" disabled />
+        </div>
+        <div class="field">
+          <label>Nota del recordatorio</label>
+          <input type="text" id="node-reminder-note" placeholder="Revisar este tema..." disabled />
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button id="btn-set-reminder" disabled>🔔 Guardar</button>
+          <button id="btn-clear-reminder" disabled>✕ Quitar</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Vincular nodos</h3>
+        <p class="hint">Selecciona un nodo origen, pulsa "Marcar origen", selecciona destino y vincula.</p>
+        <div class="status-bar" id="link-status">Origen: ninguno</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button id="btn-mark-link-source" disabled>📍 Marcar origen</button>
+          <button id="btn-create-link" disabled>🔗 Vincular</button>
+          <button id="btn-remove-links" disabled>✕ Quitar vínculos</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Mapa central</h3>
+        <div class="field">
+          <label>Tema central</label>
+          <input type="text" id="central-topic" placeholder="Tema principal" />
+        </div>
+        <button id="btn-update-central">Actualizar centro</button>
+      </div>
+      <p class="hint">Atajos: clic = expandir · doble clic = editar · rueda = zoom · arrastrar fondo = mover vista</p>
+    </div>
+
+    <div class="panel" id="panel-summary">
+      <div class="card">
+        <h3>Resumen del mapa mental</h3>
+        <p class="hint">La IA analiza todo el mapa y genera un resumen legible con las ideas principales.</p>
+        <button class="primary" id="btn-generate-summary" style="width:100%">📋 Generar resumen con IA</button>
+        <div class="status-bar" id="summary-status" style="margin-top:10px">Pulsa el botón para crear el resumen</div>
+      </div>
+      <div class="card" id="summary-card" style="display:none">
+        <h3>Resumen generado</h3>
+        <div class="summary-content" id="summary-content"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button id="btn-copy-summary">📋 Copiar</button>
+          <button id="btn-download-summary">💾 Descargar TXT</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-script">
+      <div class="card">
+        <h3>Guion de apoyo para video</h3>
+        <p class="hint">Amplía las ideas del mapa en un guion con qué decir, qué mostrar e inspiración de YouTube. Con Gemini activo, la IA busca en la web y YouTube en tiempo real.</p>
+        <div class="field">
+          <label>Formato del video</label>
+          <select id="script-format">
+            <option value="short">Short / Reel (30–90 s)</option>
+            <option value="medium" selected>Medio (8–15 min)</option>
+            <option value="long">Largo (20+ min)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Tono</label>
+          <select id="script-tone">
+            <option value="educativo" selected>Educativo</option>
+            <option value="entretenido">Entretenido</option>
+            <option value="tutorial">Tutorial paso a paso</option>
+            <option value="opinion">Opinión / análisis</option>
+          </select>
+        </div>
+        <label class="hint" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" id="script-use-search" checked />
+          Buscar en web y YouTube (requiere API Gemini)
+        </label>
+        <button class="primary" id="btn-generate-script" style="width:100%">🎬 Generar guion con IA</button>
+        <div class="status-bar" id="script-status" style="margin-top:10px">Configura Gemini en ⚙️ para búsqueda en YouTube</div>
+      </div>
+      <div class="card" id="script-card" style="display:none">
+        <h3>Guion generado</h3>
+        <div class="summary-content" id="script-content"></div>
+        <div class="summary-content" id="script-sources" style="display:none;margin-top:12px;font-size:0.9em;opacity:0.85"></div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button id="btn-copy-script">📋 Copiar</button>
+          <button id="btn-download-script">💾 Descargar TXT</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-sync">
+      <div class="card">
+        <h3>Continuidad entre dispositivos</h3>
+        <p class="hint">Tu mapa se guarda automáticamente en este navegador. Para verlo en móvil y PC, activa la sincronización en la nube.</p>
+        <div class="status-bar" id="sync-local-status" style="margin-bottom:10px">Guardado local activo</div>
+        <div class="field">
+          <label>ID de sincronización (nube)</label>
+          <input type="text" id="sync-blob-id" placeholder="Pega aquí tu ID o crea uno nuevo" />
+          <p class="hint">Usa el mismo ID en todos tus dispositivos para ver el mismo mapa.</p>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="primary" id="btn-create-sync">☁️ Crear sync en nube</button>
+          <button id="btn-connect-sync">🔗 Conectar ID</button>
+          <button id="btn-push-sync">⬆️ Subir ahora</button>
+          <button id="btn-pull-sync">⬇️ Descargar</button>
+        </div>
+        <div class="status-bar" id="sync-status" style="margin-top:10px">Sin sincronización en nube</div>
+      </div>
+      <div class="card">
+        <h3>Código manual (sin nube)</h3>
+        <p class="hint">Copia este código en otro dispositivo si prefieres no usar la nube.</p>
+        <textarea id="sync-code" placeholder="Código de sincronización..." rows="4" readonly></textarea>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+          <button id="btn-export-sync-code">📋 Generar código</button>
+          <button id="btn-import-sync-code">📥 Importar código</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-tools">
+      <div class="card">
+        <h3>Historial</h3>
+        <p class="hint">Deshacer / rehacer cambios. Atajos: Ctrl+Z / Ctrl+Y</p>
+        <div style="display:flex;gap:6px">
+          <button id="btn-undo-panel">↩ Deshacer</button>
+          <button id="btn-redo-panel">↪ Rehacer</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Versiones del mapa</h3>
+        <button id="btn-save-version">💾 Guardar versión</button>
+        <div class="field" style="margin-top:10px">
+          <label>Versión A</label>
+          <select id="version-a"></select>
+        </div>
+        <div class="field">
+          <label>Versión B</label>
+          <select id="version-b"></select>
+        </div>
+        <button id="btn-compare-versions">🔍 Comparar versiones</button>
+        <div class="summary-content" id="version-diff" style="margin-top:10px;max-height:200px"></div>
+        <div class="version-list" id="version-list" style="margin-top:8px"></div>
+      </div>
+      <div class="card">
+        <h3>Colaboración en tiempo real</h3>
+        <p class="hint">Cada usuario tiene su mapa propio al iniciar sesión. Para trabajar juntos: uno crea un ID en ☁️ Sync y lo comparte con el equipo (mismo ID + cuentas distintas).</p>
+        <label class="hint" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="collab-enabled" />
+          Activar colaboración automática
+        </label>
+        <div class="status-bar" id="collab-status" style="margin-top:8px">Desactivada</div>
+      </div>
+      <div class="card">
+        <h3>Importar archivos</h3>
+        <p class="hint">TXT, MD, JSON, PDF — el texto se usa para crear o ampliar el mapa.</p>
+        <div class="dropzone" id="file-import-zone">
+          <div class="icon">📄</div>
+          <div>Arrastra o haz clic</div>
+          <div class="hint">.txt .md .json .pdf</div>
+        </div>
+        <input type="file" id="file-import-input" accept=".txt,.md,.json,.pdf,text/*,application/json,application/pdf" hidden />
+        <div class="status-bar" id="import-status" style="margin-top:8px">Listo para importar</div>
+      </div>
+      <div class="card">
+        <h3>Modo offline (PWA)</h3>
+        <p class="hint"><strong>En móvil (Android / iPhone):</strong></p>
+        <ol class="hint" style="padding-left:18px;margin:8px 0;line-height:1.6">
+          <li>Publica la carpeta en internet (GitHub Pages, Netlify, o servidor en tu PC).</li>
+          <li>Abre la URL en Chrome (Android) o Safari (iPhone).</li>
+          <li><strong>Android:</strong> menú ⋮ → Instalar aplicación / Añadir a pantalla de inicio.</li>
+          <li><strong>iPhone:</strong> Compartir ↑ → Añadir a pantalla de inicio.</li>
+        </ol>
+        <p class="hint"><strong>En PC:</strong> usa http://localhost (no abras el .html directo) y pulsa Instalar en la barra de direcciones.</p>
+        <button id="btn-install-pwa-panel">📲 Instalar aplicación</button>
+        <div class="status-bar" id="pwa-status" style="margin-top:8px">Verificando soporte...</div>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-resizer" id="sidebar-resizer" title="Arrastra para ajustar · Doble clic = tamaño predeterminado"></div>
+  </div>
+  <button class="sidebar-toggle" id="sidebar-toggle" title="Ocultar / mostrar panel">◀</button>
+
+  <div class="canvas-wrap">
+    <canvas id="mindmap-canvas"></canvas>
+    <div class="node-popup" id="node-popup">
+      <div class="popup-title" id="popup-node-label">Tema</div>
+      <button class="primary" id="btn-popup-expand">✨ Expandir tema</button>
+      <button id="btn-popup-edit">✏️ Editar</button>
+    </div>
+    <div class="expand-badge" id="expand-hint" style="display:none">Clic en un nodo para expandir</div>
+    <div class="toolbar-float">
+      <button id="btn-zoom-out" title="Alejar">−</button>
+      <span class="zoom-label" id="zoom-label">100%</span>
+      <button id="btn-zoom-in" title="Acercar">＋</button>
+      <button id="btn-zoom-fit" title="Ajustar vista">⊡</button>
+      <button id="btn-center" title="Centrar">◎</button>
+    </div>
+  </div>
+</main>
+
+<!-- Modal configuración APIs -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <h2>⚙️ Configuración de APIs</h2>
+    <p class="hint" style="margin-bottom:14px">
+      Las claves se guardan solo en tu navegador (localStorage). Nunca se envían a servidores externos excepto a la API que elijas.
+    </p>
+    <div class="field">
+      <label>Google Gemini API Key <span class="provider-badge">Gratis</span></label>
+      <input type="password" id="api-gemini" placeholder="AIza..." />
+      <p class="hint">
+        Obtén tu clave gratis en
+        <a class="api-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+      </p>
+    </div>
+    <div class="field">
+      <label>Modelo Gemini</label>
+      <select id="gemini-model">
+        <option value="auto">Auto — prueba varios modelos actuales</option>
+        <option value="gemini-3.5-flash">gemini-3.5-flash (recomendado)</option>
+        <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
+        <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+        <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+      </select>
+      <p class="hint">Los modelos 1.5 y 2.0 ya no existen. Si falla, usa Groq para todo (transcripción + mapas).</p>
+    </div>
+    <div class="field">
+      <label>Groq API Key <span class="provider-badge">Gratis</span></label>
+      <input type="password" id="api-groq" placeholder="gsk_..." />
+      <p class="hint">
+        Regístrate en
+        <a class="api-link" href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq Console</a>
+        para Whisper gratuito y rápido.
+      </p>
+    </div>
+    <div class="field">
+      <label>OpenAI API Key <span class="provider-badge paid">De pago</span></label>
+      <input type="password" id="api-openai" placeholder="sk-..." />
+      <p class="hint">Opcional. Usa Whisper para transcripción de alta calidad.</p>
+    </div>
+    <div class="field">
+      <label>IA para mapas mentales (si no coincide con transcripción)</label>
+      <select id="map-ai-provider">
+        <option value="auto">Auto — mismo proveedor que transcripción</option>
+        <option value="groq">Groq Llama 3.3 (recomendado gratis)</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="openai">OpenAI GPT-4o-mini</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-close-settings">Cancelar</button>
+      <button class="primary" id="btn-save-settings">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal comparar versiones -->
+<div class="modal-overlay" id="modal-versions">
+  <div class="modal wide">
+    <h2>🔍 Comparación de versiones</h2>
+    <div class="summary-content" id="modal-version-diff"></div>
+    <div class="modal-actions">
+      <button id="btn-restore-version-a">Restaurar versión A</button>
+      <button id="btn-close-versions">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal resumen -->
+<div class="modal-overlay" id="modal-summary">
+  <div class="modal wide">
+    <h2>📋 Resumen del mapa mental</h2>
+    <div class="summary-content" id="modal-summary-content"></div>
+    <div class="modal-actions">
+      <button id="btn-copy-modal-summary">📋 Copiar</button>
+      <button id="btn-close-summary">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal guion -->
+<div class="modal-overlay" id="modal-script">
+  <div class="modal wide">
+    <h2>🎬 Guion de apoyo para video</h2>
+    <div class="summary-content" id="modal-script-content"></div>
+    <div class="summary-content" id="modal-script-sources" style="display:none;margin-top:12px;font-size:0.9em;opacity:0.85"></div>
+    <div class="modal-actions">
+      <button id="btn-copy-modal-script">📋 Copiar</button>
+      <button id="btn-close-script">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal editar nodo -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal">
+    <h2>✏️ Editar nodo</h2>
+    <div class="field">
+      <input type="text" id="modal-node-input" />
+    </div>
+    <div class="modal-actions">
+      <button id="btn-modal-cancel">Cancelar</button>
+      <button class="primary" id="btn-modal-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="import-file" accept=".json" hidden />
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+/* ============================================================
+   MindFlow — Motor de mapas mentales + transcripción IA
+   Un solo archivo HTML. Sin dependencias externas.
+   ============================================================ */
+
+// ─── Estado global ───────────────────────────────────────────
+const state = {
+  nodes: [],
+  edges: [],
+  crossLinks: [],
+  selectedId: null,
+  linkSourceId: null,
+  panX: 0,
+  panY: 0,
+  zoom: 1,
+  dragging: null,
+  panning: false,
+  panStart: { x: 0, y: 0 },
+  audioBlob: null,
+  audioFile: null,
+  transcript: '',
+  recTimer: null,
+  recSeconds: 0,
+  isRecording: false,
+  isStartingRecord: false,
+  mediaStream: null,
+  mediaRecorder: null,
+  recordedChunks: [],
+  nodeIdCounter: 1,
+  pointerDown: null,
+  isExpanding: false,
+  isSummarizing: false,
+  isGeneratingScript: false,
+  lastSummary: '',
+  lastScript: '',
+  lastScriptSources: '',
+  popupJustOpened: false,
+  syncBlobId: '',
+  selectedMicId: localStorage.getItem('mf_mic_id') || '',
+  deviceId: localStorage.getItem('mf_device_id') || ('dev-' + Math.random().toString(36).slice(2, 10)),
+  saveTimer: null,
+  history: { past: [], future: [], locking: false },
+  collabTimer: null,
+  lastCloudTime: 0,
+  continuousDictation: false,
+  dictationRecognition: null,
+  dictationTranscript: '',
+  deferredInstallPrompt: null,
+  colors: ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#74b9ff','#a29bfe','#55efc4','#e17055','#81ecec','#ffeaa7'],
+};
+localStorage.setItem('mf_device_id', state.deviceId);
+
+const $ = id => document.getElementById(id);
+const canvas = $('mindmap-canvas');
+const ctx = canvas.getContext('2d');
+
+// ─── Utilidades ──────────────────────────────────────────────
+function uid() { return 'n' + (state.nodeIdCounter++); }
+
+const GEMINI_MODELS_FALLBACK = [
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+];
+
+const MAP_PROVIDER_LABELS = {
+  groq: 'Groq Llama 3.3',
+  gemini: 'Google Gemini',
+  openai: 'OpenAI GPT-4o-mini',
+  browser: 'IA configurada en ⚙️ APIs',
+};
+
+function loadSettings() {
+  return {
+    gemini: localStorage.getItem('mf_gemini') || '',
+    groq: localStorage.getItem('mf_groq') || '',
+    openai: localStorage.getItem('mf_openai') || '',
+    mapAi: localStorage.getItem('mf_map_ai') || 'auto',
+    geminiModel: localStorage.getItem('mf_gemini_model') || 'auto',
+  };
+}
+
+function saveSettings(s) {
+  localStorage.setItem('mf_gemini', s.gemini);
+  localStorage.setItem('mf_groq', s.groq);
+  localStorage.setItem('mf_openai', s.openai);
+  localStorage.setItem('mf_map_ai', s.mapAi);
+  localStorage.setItem('mf_gemini_model', s.geminiModel);
+}
+
+function getGeminiModels() {
+  const pref = loadSettings().geminiModel;
+  if (pref && pref !== 'auto' && GEMINI_MODELS_FALLBACK.includes(pref)) {
+    return [pref, ...GEMINI_MODELS_FALLBACK.filter(m => m !== pref)];
+  }
+  return [...GEMINI_MODELS_FALLBACK];
+}
+
+function isGeminiQuotaError(msg) {
+  return /quota|rate.?limit|429|limit:\s*0|exceeded/i.test(msg || '');
+}
+
+function isGeminiRetryableError(msg) {
+  return isGeminiQuotaError(msg) || /not found|not supported|404/i.test(msg || '');
+}
+
+function formatGeminiError(msg) {
+  if (isGeminiQuotaError(msg)) {
+    return 'Cuota gratuita de Gemini agotada. Usa Groq (gratis) o espera 1 minuto y reintenta.';
+  }
+  if (/not found|not supported/i.test(msg || '')) {
+    return 'Modelo Gemini obsoleto o no disponible. Ve a ⚙️ APIs → Modelo "Auto", o usa Groq para transcripción y mapas.';
+  }
+  return msg;
+}
+
+function getEffectiveMapProvider() {
+  const settings = loadSettings();
+  const transcribe = $('transcribe-provider')?.value;
+  const mapPref = settings.mapAi;
+
+  if (mapPref && mapPref !== 'auto') return mapPref;
+
+  if (transcribe === 'groq' && settings.groq) return 'groq';
+  if (transcribe === 'gemini' && settings.gemini) return 'gemini';
+  if (transcribe === 'openai' && settings.openai) return 'openai';
+
+  if (settings.groq) return 'groq';
+  if (settings.gemini) return 'gemini';
+  if (settings.openai) return 'openai';
+  return 'groq';
+}
+
+function updateMapProviderHint() {
+  const provider = getEffectiveMapProvider();
+  const label = MAP_PROVIDER_LABELS[provider] || provider;
+  const hint = $('map-provider-hint');
+  const btn = $('btn-generate-map');
+  const mapStatus = $('map-status');
+  if (hint) hint.textContent = `El mapa se generará con: ${label}`;
+  if (btn) btn.textContent = `✨ Generar mapa mental (${label})`;
+  if (mapStatus && !mapStatus.classList.contains('loading') && !mapStatus.classList.contains('error') && !mapStatus.classList.contains('ok')) {
+    setStatus(mapStatus, `Listo. Se usará ${label} (no Gemini si transcribes con Groq).`);
+  }
+}
+
+async function callGeminiRaw(key, model, body) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Gemini ${res.status} (${model})`);
+  }
+  return res.json();
+}
+
+async function callGeminiWithFallback(key, buildBody, onTry) {
+  const models = getGeminiModels();
+  let lastErr = '';
+  for (const model of models) {
+    try {
+      if (onTry) onTry(model);
+      const data = await callGeminiRaw(key, model, buildBody(model));
+      return { data, model };
+    } catch (e) {
+      lastErr = e.message;
+      if (!isGeminiRetryableError(lastErr)) throw new Error(formatGeminiError(lastErr));
+    }
+  }
+  throw new Error(formatGeminiError(lastErr));
+}
+
+function setStatus(el, msg, type = '') {
+  el.textContent = msg;
+  el.className = 'status-bar' + (type ? ' ' + type : '');
+}
+
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  canvas.width = wrap.clientWidth * devicePixelRatio;
+  canvas.height = wrap.clientHeight * devicePixelRatio;
+  canvas.style.width = wrap.clientWidth + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  render();
+}
+
+function blobToBase64(blob) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(blob);
+  });
+}
+
+const VERSIONS_KEY_BASE = 'mf_versions';
+const USERS_REGISTRY_KEY = 'mf_users';
+const SESSION_KEY = 'mf_session_user';
+
+function getCurrentUser() {
+  return sessionStorage.getItem(SESSION_KEY) || null;
+}
+
+function userScopedKey(base) {
+  const u = getCurrentUser();
+  return u ? `${base}_${u.toLowerCase()}` : base;
+}
+
+function getWorkspaceKey() { return userScopedKey('mf_workspace'); }
+function getSyncBlobKey() { return userScopedKey('mf_sync_blob_id'); }
+function getVersionsKey() { return userScopedKey(VERSIONS_KEY_BASE); }
+
+const THEME_KEY = 'mf_theme';
+
+function loadUserSyncId() {
+  state.syncBlobId = localStorage.getItem(getSyncBlobKey()) || '';
+}
+
+function saveUserSyncId(id) {
+  state.syncBlobId = id || '';
+  if (id) localStorage.setItem(getSyncBlobKey(), id);
+  else localStorage.removeItem(getSyncBlobKey());
+}
+
+// ─── Autenticación de usuarios ───────────────────────────────
+function getUsersRegistry() {
+  try { return JSON.parse(localStorage.getItem(USERS_REGISTRY_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveUsersRegistry(reg) {
+  localStorage.setItem(USERS_REGISTRY_KEY, JSON.stringify(reg));
+}
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 120000, hash: 'SHA-256' },
+    key, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function validateUsername(name) {
+  const n = (name || '').trim().toLowerCase();
+  if (n.length < 3) return 'Usuario mínimo 3 caracteres (letras, números, _)';
+  if (!/^[a-z0-9_]+$/.test(n)) return 'Solo letras minúsculas, números y guión bajo';
+  return null;
+}
+
+async function registerUser(username, password) {
+  const err = validateUsername(username);
+  if (err) throw new Error(err);
+  if ((password || '').length < 6) throw new Error('Contraseña mínimo 6 caracteres');
+  const user = username.trim().toLowerCase();
+  const reg = getUsersRegistry();
+  if (reg[user]) throw new Error('Ese usuario ya existe');
+  const salt = crypto.randomUUID();
+  const hash = await hashPassword(password, salt);
+  reg[user] = { salt, hash, createdAt: Date.now(), displayName: username.trim() };
+  saveUsersRegistry(reg);
+  return user;
+}
+
+async function loginUser(username, password) {
+  const user = (username || '').trim().toLowerCase();
+  const reg = getUsersRegistry();
+  const rec = reg[user];
+  if (!rec) throw new Error('Usuario no encontrado');
+  const hash = await hashPassword(password, rec.salt);
+  if (hash !== rec.hash) throw new Error('Contraseña incorrecta');
+  return user;
+}
+
+function setAuthSession(username) {
+  sessionStorage.setItem(SESSION_KEY, username);
+  document.body.classList.add('authenticated');
+  $('user-badge').textContent = '@' + username;
+  $('user-badge').title = 'Sesión: ' + username;
+  loadUserSyncId();
+  state.deviceId = `${username}-${state.deviceId.split('-').pop()}`;
+}
+
+function logoutUser() {
+  stopCollabPolling();
+  sessionStorage.removeItem(SESSION_KEY);
+  document.body.classList.remove('authenticated');
+  $('auth-screen').style.display = 'flex';
+  $('login-user').value = '';
+  $('login-pass').value = '';
+  setStatus($('auth-status'), 'Sesión cerrada', 'ok');
+}
+
+async function enterAppAsUser(username) {
+  setAuthSession(username);
+  $('auth-screen').style.display = 'none';
+  await bootApp();
+}
+
+async function tryAutoLogin() {
+  const user = getCurrentUser();
+  if (user && getUsersRegistry()[user]) {
+    setAuthSession(user);
+    $('auth-screen').style.display = 'none';
+    await bootApp();
+    return true;
+  }
+  return false;
+}
+
+function setupAuthUI() {
+  $('auth-tab-login').addEventListener('click', () => {
+    $('auth-tab-login').classList.add('active');
+    $('auth-tab-register').classList.remove('active');
+    $('auth-form-login').style.display = 'block';
+    $('auth-form-register').style.display = 'none';
+  });
+  $('auth-tab-register').addEventListener('click', () => {
+    $('auth-tab-register').classList.add('active');
+    $('auth-tab-login').classList.remove('active');
+    $('auth-form-register').style.display = 'block';
+    $('auth-form-login').style.display = 'none';
+  });
+
+  $('btn-login').addEventListener('click', async () => {
+    setStatus($('auth-status'), 'Entrando...', 'loading');
+    try {
+      const user = await loginUser($('login-user').value, $('login-pass').value);
+      await enterAppAsUser(user);
+    } catch (e) {
+      setStatus($('auth-status'), e.message, 'error');
+    }
+  });
+
+  $('btn-register').addEventListener('click', async () => {
+    const p1 = $('reg-pass').value;
+    const p2 = $('reg-pass2').value;
+    if (p1 !== p2) { setStatus($('auth-status'), 'Las contraseñas no coinciden', 'error'); return; }
+    setStatus($('auth-status'), 'Creando cuenta...', 'loading');
+    try {
+      const user = await registerUser($('reg-user').value, p1);
+      await enterAppAsUser(user);
+    } catch (e) {
+      setStatus($('auth-status'), e.message, 'error');
+    }
+  });
+
+  $('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-login').click(); });
+  $('reg-pass2').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-register').click(); });
+
+  $('btn-logout').addEventListener('click', () => {
+    if (confirm('¿Cerrar sesión? Tu mapa quedará guardado en tu cuenta.')) logoutUser();
+  });
+}
+
+// ─── Micrófonos ──────────────────────────────────────────────
+async function refreshMicList() {
+  const sel = $('mic-select');
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    setStatus($('transcribe-status'), 'Permite acceso al micrófono para listar dispositivos', 'error');
+  }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const mics = devices.filter(d => d.kind === 'audioinput');
+  const saved = state.selectedMicId || localStorage.getItem('mf_mic_id') || '';
+  sel.innerHTML = '<option value="">Predeterminado del sistema</option>' +
+    mics.map((m, i) => {
+      const label = m.label || `Micrófono ${i + 1}`;
+      const selAttr = m.deviceId === saved ? ' selected' : '';
+      return `<option value="${m.deviceId}"${selAttr}>${label.replace(/"/g, '')}</option>`;
+    }).join('');
+  if (mics.length) setStatus($('transcribe-status'), `✓ ${mics.length} micrófono(s) detectado(s)`, 'ok');
+}
+
+function getAudioConstraints() {
+  const id = $('mic-select')?.value || state.selectedMicId || localStorage.getItem('mf_mic_id') || '';
+  if (id) return { audio: { deviceId: { exact: id }, echoCancellation: true, noiseSuppression: true } };
+  return { audio: { echoCancellation: true, noiseSuppression: true } };
+}
+
+function setupMicSelector() {
+  $('btn-refresh-mics').addEventListener('click', refreshMicList);
+  $('mic-select').addEventListener('change', e => {
+    state.selectedMicId = e.target.value;
+    localStorage.setItem('mf_mic_id', e.target.value);
+  });
+  if (navigator.mediaDevices?.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', refreshMicList);
+  }
+}
+
+// ─── Persistencia y sincronización ───────────────────────────
+
+// ─── Historial deshacer/rehacer ──────────────────────────────
+function pushHistory() {
+  if (state.history.locking) return;
+  const snap = JSON.stringify(serializeWorkspace());
+  const past = state.history.past;
+  if (past.length && past[past.length - 1] === snap) return;
+  past.push(snap);
+  if (past.length > 50) past.shift();
+  state.history.future = [];
+}
+
+function undo() {
+  if (!state.history.past.length) return;
+  state.history.locking = true;
+  state.history.future.push(JSON.stringify(serializeWorkspace()));
+  deserializeWorkspace(JSON.parse(state.history.past.pop()));
+  state.history.locking = false;
+  scheduleSave();
+}
+
+function redo() {
+  if (!state.history.future.length) return;
+  state.history.locking = true;
+  state.history.past.push(JSON.stringify(serializeWorkspace()));
+  deserializeWorkspace(JSON.parse(state.history.future.pop()));
+  state.history.locking = false;
+  scheduleSave();
+}
+
+// ─── Versiones ───────────────────────────────────────────────
+function getVersions() {
+  try { return JSON.parse(localStorage.getItem(getVersionsKey()) || '[]'); }
+  catch { return []; }
+}
+
+function saveVersionSnapshot(label) {
+  const versions = getVersions();
+  versions.unshift({
+    id: Date.now(),
+    label: label || new Date().toLocaleString('es-ES'),
+    data: serializeWorkspace(),
+  });
+  if (versions.length > 25) versions.pop();
+  localStorage.setItem(getVersionsKey(), JSON.stringify(versions));
+  refreshVersionUI();
+}
+
+function refreshVersionUI() {
+  const versions = getVersions();
+  const opts = versions.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+  $('version-a').innerHTML = opts;
+  $('version-b').innerHTML = opts;
+  $('version-list').innerHTML = versions.slice(0, 8).map(v =>
+    `<div class="version-item" data-id="${v.id}">📌 ${v.label}</div>`
+  ).join('') || '<p class="hint">Sin versiones guardadas</p>';
+}
+
+function getNodeLabelsFromWorkspace(data) {
+  return new Set((data?.nodes || []).map(n => n.label));
+}
+
+function compareVersionData(a, b) {
+  const labelsA = getNodeLabelsFromWorkspace(a);
+  const labelsB = getNodeLabelsFromWorkspace(b);
+  const added = [...labelsB].filter(x => !labelsA.has(x));
+  const removed = [...labelsA].filter(x => !labelsB.has(x));
+  const common = [...labelsA].filter(x => labelsB.has(x));
+  let html = `<p><strong>Versión A:</strong> ${a.nodes?.length || 0} nodos · <strong>B:</strong> ${b.nodes?.length || 0} nodos</p>`;
+  if (added.length) html += `<p class="diff-added">＋ Añadidos en B (${added.length}): ${added.slice(0, 15).join(', ')}${added.length > 15 ? '…' : ''}</p>`;
+  if (removed.length) html += `<p class="diff-removed">− Eliminados en B (${removed.length}): ${removed.slice(0, 15).join(', ')}${removed.length > 15 ? '…' : ''}</p>`;
+  html += `<p class="diff-changed">≈ Sin cambiar: ${common.length} nodos</p>`;
+  const linksA = (a.crossLinks || []).length;
+  const linksB = (b.crossLinks || []).length;
+  if (linksA !== linksB) html += `<p class="diff-changed">🔗 Vínculos: ${linksA} → ${linksB}</p>`;
+  return html;
+}
+
+function compareSelectedVersions() {
+  const versions = getVersions();
+  const idA = Number($('version-a').value);
+  const idB = Number($('version-b').value);
+  const a = versions.find(v => v.id === idA)?.data;
+  const b = versions.find(v => v.id === idB)?.data;
+  if (!a || !b) return setStatus($('version-diff'), 'Selecciona dos versiones', 'error');
+  const html = compareVersionData(a, b);
+  $('version-diff').innerHTML = html;
+  $('modal-version-diff').innerHTML = html;
+  $('modal-versions').classList.add('open');
+}
+
+// ─── Temas ───────────────────────────────────────────────────
+function applyTheme(name) {
+  if (name === 'green') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', name);
+  localStorage.setItem(THEME_KEY, name);
+  if ($('theme-select')) $('theme-select').value = name;
+}
+
+// ─── Colaboración ────────────────────────────────────────────
+function startCollabPolling() {
+  stopCollabPolling();
+  if (!$('collab-enabled').checked || !state.syncBlobId) {
+    setStatus($('collab-status'), 'Activa sync ID primero', 'error');
+    $('collab-enabled').checked = false;
+    return;
+  }
+  setStatus($('collab-status'), 'Colaboración activa — sincronizando…', 'ok');
+  state.collabTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`https://jsonblob.com/api/jsonBlob/${state.syncBlobId}`);
+      if (!res.ok) return;
+      const cloud = await res.json();
+      if (cloud.savedAt > state.lastCloudTime && cloud.deviceId !== state.deviceId) {
+        state.lastCloudTime = cloud.savedAt;
+        state.history.locking = true;
+        deserializeWorkspace(cloud);
+        state.history.locking = false;
+        setStatus($('collab-status'), `✓ Actualizado desde otro dispositivo · ${new Date(cloud.savedAt).toLocaleTimeString('es-ES')}`, 'ok');
+      } else if (cloud.savedAt > state.lastCloudTime) {
+        state.lastCloudTime = cloud.savedAt;
+      }
+    } catch { /* offline */ }
+  }, 8000);
+}
+
+function stopCollabPolling() {
+  if (state.collabTimer) clearInterval(state.collabTimer);
+  state.collabTimer = null;
+}
+
+function serializeWorkspace() {
+  return {
+    version: 2,
+    savedAt: Date.now(),
+    deviceId: state.deviceId,
+    nodes: state.nodes.map(n => ({
+      id: n.id, label: n.label, x: n.x, y: n.y,
+      parentId: n.parentId, depth: n.depth, color: n.color,
+      customColor: n.customColor || null,
+      tags: n.tags || [],
+      reminder: n.reminder || null,
+    })),
+    edges: [...state.edges],
+    crossLinks: [...state.crossLinks],
+    nodeIdCounter: state.nodeIdCounter,
+    panX: state.panX,
+    panY: state.panY,
+    zoom: state.zoom,
+    selectedId: state.selectedId,
+    transcript: state.transcript,
+    lastSummary: state.lastSummary,
+    lastScript: state.lastScript,
+    lastScriptSources: state.lastScriptSources,
+    centralTopic: $('central-topic')?.value || '',
+  };
+}
+
+function deserializeWorkspace(data) {
+  if (!data?.nodes?.length) return false;
+  state.nodes = data.nodes.map(n => ({
+    ...n, w: 0, h: 0, lines: [],
+    tags: n.tags || [],
+    customColor: n.customColor || null,
+    reminder: n.reminder || null,
+  }));
+  state.edges = data.edges || [];
+  state.crossLinks = data.crossLinks || [];
+  state.nodeIdCounter = data.nodeIdCounter || state.nodes.length + 1;
+  state.panX = data.panX ?? 0;
+  state.panY = data.panY ?? 0;
+  state.zoom = data.zoom ?? 1;
+  state.selectedId = data.selectedId || null;
+  state.transcript = data.transcript || '';
+  state.lastSummary = data.lastSummary || '';
+  state.lastScript = data.lastScript || '';
+  state.lastScriptSources = data.lastScriptSources || '';
+  state.lastCloudTime = data.savedAt || 0;
+  state.nodes.forEach(measureNode);
+  if (data.centralTopic) $('central-topic').value = data.centralTopic;
+  if (state.transcript) {
+    $('transcript-text').textContent = state.transcript;
+    $('transcript-card').style.display = 'block';
+  }
+  if (state.lastSummary) {
+    $('summary-content').textContent = state.lastSummary;
+    $('summary-card').style.display = 'block';
+  }
+  if (state.lastScript) {
+    $('script-content').textContent = state.lastScript;
+    $('script-card').style.display = 'block';
+    renderScriptSources($('script-sources'), state.lastScriptSources);
+  }
+  updateEditPanel();
+  updateScriptSearchHint();
+  updateMapProviderHint();
+  applyVibrantNodeColors();
+  render();
+  updateSyncUI();
+  return true;
+}
+
+function scheduleSave() {
+  clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(saveWorkspace, 700);
+}
+
+function saveWorkspace() {
+  try {
+    const data = serializeWorkspace();
+    localStorage.setItem(getWorkspaceKey(), JSON.stringify(data));
+    const when = new Date(data.savedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    setStatus($('sync-local-status'), `✓ Guardado local · ${when}`, 'ok');
+    state.lastCloudTime = data.savedAt;
+    if (state.syncBlobId) pushToCloud(true);
+  } catch (e) {
+    console.warn('Error guardando:', e);
+  }
+}
+
+function loadLocalWorkspace() {
+  const raw = localStorage.getItem(getWorkspaceKey());
+  if (!raw) return false;
+  try {
+    return deserializeWorkspace(JSON.parse(raw));
+  } catch {
+    return false;
+  }
+}
+
+function updateSyncUI() {
+  $('sync-blob-id').value = state.syncBlobId || '';
+  if (state.syncBlobId) {
+    setStatus($('sync-status'), `Conectado · ID: ${state.syncBlobId}`, 'ok');
+  }
+}
+
+async function createCloudSync() {
+  setStatus($('sync-status'), 'Creando sincronización en la nube...', 'loading');
+  try {
+    const res = await fetch('https://jsonblob.com/api/jsonBlob', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(serializeWorkspace()),
+    });
+    if (!res.ok) throw new Error('No se pudo crear el sync (' + res.status + ')');
+    const loc = res.headers.get('Location') || '';
+    const id = loc.split('/').pop();
+    if (!id) throw new Error('Respuesta inválida del servidor');
+    saveUserSyncId(id);
+    updateSyncUI();
+    setStatus($('sync-status'), `✓ Sync creado. ID: ${id} — guárdalo y úsalo en otros dispositivos`, 'ok');
+  } catch (e) {
+    setStatus($('sync-status'), 'Error: ' + e.message, 'error');
+  }
+}
+
+async function pushToCloud(silent = false) {
+  if (!state.syncBlobId) return;
+  if (!silent) setStatus($('sync-status'), 'Subiendo mapa...', 'loading');
+  try {
+    const res = await fetch(`https://jsonblob.com/api/jsonBlob/${state.syncBlobId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(serializeWorkspace()),
+    });
+    if (!res.ok) throw new Error('Error al subir (' + res.status + ')');
+    if (!silent) setStatus($('sync-status'), '✓ Mapa subido a la nube', 'ok');
+  } catch (e) {
+    if (!silent) setStatus($('sync-status'), 'Error: ' + e.message, 'error');
+  }
+}
+
+async function pullFromCloud(blobId) {
+  const id = (blobId || state.syncBlobId || '').trim();
+  if (!id) throw new Error('Introduce un ID de sincronización');
+  setStatus($('sync-status'), 'Descargando mapa...', 'loading');
+  const res = await fetch(`https://jsonblob.com/api/jsonBlob/${id}`);
+  if (!res.ok) throw new Error('ID no encontrado o sin conexión');
+  const data = await res.json();
+  deserializeWorkspace(data);
+  saveUserSyncId(id);
+  localStorage.setItem(getWorkspaceKey(), JSON.stringify(data));
+  updateSyncUI();
+  setStatus($('sync-status'), '✓ Mapa descargado y aplicado', 'ok');
+}
+
+function exportSyncCode() {
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(serializeWorkspace()))));
+  $('sync-code').value = code;
+  copyToClipboard(code);
+  setStatus($('sync-status'), '✓ Código generado y copiado al portapapeles', 'ok');
+}
+
+function importSyncCode() {
+  const raw = $('sync-code').value.trim();
+  if (!raw) throw new Error('Pega un código primero');
+  const data = JSON.parse(decodeURIComponent(escape(atob(raw))));
+  deserializeWorkspace(data);
+  saveWorkspace();
+  setStatus($('sync-status'), '✓ Mapa importado desde código', 'ok');
+}
+
+// ─── Modelo de datos del mapa ────────────────────────────────
+function pickNodeColor(parentId, opts = {}) {
+  if (opts.customColor) return opts.customColor;
+  if (!parentId) return state.colors[0];
+  const existing = getChildren(parentId);
+  const idx = (existing.length + 1) % state.colors.length;
+  return state.colors[idx === 0 ? 1 : idx];
+}
+
+function applyVibrantNodeColors() {
+  const root = state.nodes.find(n => !n.parentId);
+  if (!root) return;
+  if (!root.customColor) root.color = state.colors[0];
+  function colorize(node) {
+    getChildren(node.id).forEach((child, i) => {
+      if (!child.customColor) {
+        const parentIdx = state.colors.indexOf(node.color);
+        child.color = state.colors[(parentIdx + i + 1) % state.colors.length];
+      }
+      colorize(child);
+    });
+  }
+  colorize(root);
+}
+
+function createNode(label, x, y, parentId = null, depth = 0, opts = {}) {
+  const id = uid();
+  const color = pickNodeColor(parentId, opts);
+  const node = {
+    id, label, x, y, parentId, depth, color,
+    customColor: opts.customColor || null,
+    tags: opts.tags || [],
+    reminder: opts.reminder || null,
+    w: 0, h: 0,
+  };
+  state.nodes.push(node);
+  if (parentId) {
+    state.edges.push({ from: parentId, to: id });
+  }
+  measureNode(node);
+  scheduleSave();
+  return node;
+}
+
+function measureNode(node) {
+  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+  const lines = wrapText(node.label, 180);
+  node.lines = lines;
+  node.w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 28;
+  node.h = lines.length * 20 + 16;
+}
+
+function wrapText(text, maxW) {
+  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line);
+      line = w;
+    } else line = test;
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [text];
+}
+
+function getChildren(id) {
+  return state.edges.filter(e => e.from === id).map(e => state.nodes.find(n => n.id === e.to)).filter(Boolean);
+}
+
+function deleteNode(id) {
+  pushHistory();
+  const toDelete = new Set();
+  function collect(nid) {
+    toDelete.add(nid);
+    getChildren(nid).forEach(c => collect(c.id));
+  }
+  collect(id);
+  state.nodes = state.nodes.filter(n => !toDelete.has(n.id));
+  state.edges = state.edges.filter(e => !toDelete.has(e.from) && !toDelete.has(e.to));
+  state.crossLinks = state.crossLinks.filter(l => !toDelete.has(l.from) && !toDelete.has(l.to));
+  if (state.selectedId && toDelete.has(state.selectedId)) state.selectedId = null;
+  scheduleSave();
+}
+
+function getChildDirectionAngle(parent) {
+  const grandparent = parent.parentId ? state.nodes.find(n => n.id === parent.parentId) : null;
+  if (grandparent) return Math.atan2(parent.y - grandparent.y, parent.x - grandparent.x);
+  const children = getChildren(parent.id);
+  if (children.length) return Math.atan2(children[0].y - parent.y, children[0].x - parent.x);
+  return -Math.PI / 2;
+}
+
+function layoutChildrenAroundParent(parent, children) {
+  if (!children.length) return;
+  const dirAngle = getChildDirectionAngle(parent);
+  const count = children.length;
+  const radius = Math.max(130, 110 + parent.depth * 28);
+  const spread = Math.min(Math.PI * 1.5, Math.max(Math.PI / 3, count * 0.45));
+  const startAngle = dirAngle - spread / 2;
+
+  children.forEach((child, i) => {
+    const angle = count === 1 ? dirAngle : startAngle + (spread * i) / Math.max(count - 1, 1);
+    child.x = parent.x + Math.cos(angle) * radius;
+    child.y = parent.y + Math.sin(angle) * radius;
+    measureNode(child);
+  });
+}
+
+function addTreeBranch(parentNode, tree, depth) {
+  const children = tree.children || [];
+  if (!children.length) return;
+  const newNodes = children.map(child => {
+    const n = createNode(child.title || child.label || 'Nodo', parentNode.x, parentNode.y, parentNode.id, depth);
+    return n;
+  });
+  layoutChildrenAroundParent(parentNode, newNodes);
+  children.forEach((child, i) => addTreeBranch(newNodes[i], child, depth + 1));
+}
+
+function isPlaceholderMap() {
+  const root = state.nodes.find(n => !n.parentId);
+  if (!root) return !state.nodes.length;
+  const children = getChildren(root.id);
+  if (root.label === 'Mi Mapa Mental' && children.length === 0) return true;
+  if (root.label === 'Mi Mapa Mental' && children.length === 3) {
+    const labels = new Set(children.map(c => c.label));
+    return labels.has('Ideas') && labels.has('Tareas') && labels.has('Notas de audio');
+  }
+  return false;
+}
+
+function resetMapCanvas() {
+  state.nodes = [];
+  state.edges = [];
+  state.crossLinks = [];
+  state.nodeIdCounter = 1;
+  state.selectedId = null;
+  state.linkSourceId = null;
+  hideNodePopup();
+}
+
+function mergeTreeIntoMap(tree) {
+  let root = state.nodes.find(n => !n.parentId);
+  if (!root) {
+    const wrap = canvas.parentElement;
+    root = createNode(tree.title || 'Mi Mapa Mental', wrap.clientWidth / 2, wrap.clientHeight / 2);
+    addTreeBranch(root, tree, root.depth + 1);
+    return root;
+  }
+
+  let target = root;
+  if (tree.title && tree.title.toLowerCase() !== root.label.toLowerCase()) {
+    let branch = getChildren(root.id).find(c => c.label.toLowerCase() === tree.title.toLowerCase());
+    if (!branch) {
+      branch = createNode(tree.title, root.x + 160, root.y, root.id, root.depth + 1);
+      layoutChildrenAroundParent(root, getChildren(root.id));
+    }
+    target = branch;
+  }
+  addTreeBranch(target, tree, target.depth + 1);
+  layoutChildrenAroundParent(target, getChildren(target.id));
+  return root;
+}
+
+function buildFromTree(tree, cx, cy, parentId = null, depth = 0, angleStart = -Math.PI / 2, angleSpan = Math.PI * 2) {
+  const node = createNode(tree.title || tree.label || 'Nodo', cx, cy, parentId, depth);
+  const children = tree.children || [];
+  if (!children.length) return node;
+
+  const radius = 160 + depth * 30;
+  const step = angleSpan / children.length;
+  children.forEach((child, i) => {
+    const angle = angleStart + step * i + step / 2;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    buildFromTree(child, x, y, node.id, depth + 1, angle - step / 4, step * 0.8);
+  });
+  return node;
+}
+
+function treeToJSON() {
+  const root = state.nodes.find(n => !n.parentId);
+  if (!root) return null;
+  function build(n) {
+    return {
+      title: n.label,
+      children: getChildren(n.id).map(build),
+    };
+  }
+  return build(root);
+}
+
+function loadFromJSON(data) {
+  pushHistory();
+  state.nodes = [];
+  state.edges = [];
+  state.crossLinks = [];
+  state.nodeIdCounter = 1;
+  const wrap = canvas.parentElement;
+  buildFromTree(data, wrap.clientWidth / 2, wrap.clientHeight / 2);
+  fitView();
+  render();
+  scheduleSave();
+}
+
+function buildSubtreeJSON(node) {
+  return {
+    title: node.label,
+    children: getChildren(node.id).map(buildSubtreeJSON),
+  };
+}
+
+function getNodeContext(node) {
+  const path = [];
+  let current = node;
+  while (current) {
+    path.unshift(current.label);
+    current = current.parentId ? state.nodes.find(n => n.id === current.parentId) : null;
+  }
+  return {
+    path: path.join(' → '),
+    existingChildren: getChildren(node.id).map(c => c.label),
+    subtree: buildSubtreeJSON(node),
+  };
+}
+
+function hideNodePopup() {
+  $('node-popup').style.display = 'none';
+}
+
+function showNodePopup(node) {
+  state.selectedId = node.id;
+  updateEditPanel();
+  render();
+
+  const popup = $('node-popup');
+  const rect = canvas.getBoundingClientRect();
+  const sx = rect.left + state.panX + node.x * state.zoom;
+  const sy = rect.top + state.panY + node.y * state.zoom + (node.h / 2) * state.zoom + 10;
+
+  popup.style.left = sx + 'px';
+  popup.style.top = sy + 'px';
+  popup.style.display = 'flex';
+  $('popup-node-label').textContent = node.label;
+  $('btn-popup-expand').disabled = state.isExpanding;
+  state.popupJustOpened = true;
+  setTimeout(() => { state.popupJustOpened = false; }, 250);
+}
+
+function addExpandedChildren(parent, titles) {
+  const existing = getChildren(parent.id);
+  const newTitles = titles.filter(t => t && !existing.some(c => c.label.toLowerCase() === t.toLowerCase()));
+  if (!newTitles.length) return 0;
+
+  const newNodes = newTitles.map(title =>
+    createNode(title, parent.x, parent.y, parent.id, parent.depth + 1)
+  );
+  layoutChildrenAroundParent(parent, [...existing, ...newNodes]);
+  scheduleSave();
+  return newNodes.length;
+}
+
+// ─── Renderizado Canvas ──────────────────────────────────────
+function render() {
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(state.panX, state.panY);
+  ctx.scale(state.zoom, state.zoom);
+
+  // Aristas jerárquicas
+  for (const e of state.edges) {
+    const from = state.nodes.find(n => n.id === e.from);
+    const to = state.nodes.find(n => n.id === e.to);
+    if (!from || !to) continue;
+    drawEdge(from, to, false);
+  }
+
+  // Vínculos cruzados
+  for (const link of state.crossLinks) {
+    const from = state.nodes.find(n => n.id === link.from);
+    const to = state.nodes.find(n => n.id === link.to);
+    if (!from || !to) continue;
+    drawEdge(from, to, true);
+  }
+
+  // Nodos
+  for (const n of state.nodes) drawNode(n);
+
+  ctx.restore();
+  $('zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+  if (state.dragging || state.panning) scheduleSave();
+}
+
+function drawEdge(from, to, isCrossLink) {
+  const fx = from.x, fy = from.y;
+  const tx = to.x, ty = to.y;
+  const mx = (fx + tx) / 2;
+  const my = (fy + ty) / 2;
+  const dx = tx - fx, dy = ty - fy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const off = Math.min(dist * 0.3, 60);
+
+  ctx.beginPath();
+  ctx.moveTo(fx, fy);
+  if (isCrossLink) {
+    ctx.lineTo(tx, ty);
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = 'rgba(233,196,106,0.7)';
+    ctx.lineWidth = 2;
+  } else {
+    ctx.quadraticCurveTo(mx + (-dy / dist) * off * 0.3, my + (dx / dist) * off * 0.3, tx, ty);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = 'rgba(82,183,136,0.35)';
+    ctx.lineWidth = 2;
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawNode(n) {
+  const rx = 10;
+  const x = n.x - n.w / 2;
+  const y = n.y - n.h / 2;
+  const sel = n.id === state.selectedId;
+  const nodeColor = n.customColor || n.color;
+
+  ctx.shadowColor = sel ? nodeColor : 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = sel ? 18 : 10;
+  ctx.shadowOffsetY = 4;
+
+  const grad = ctx.createLinearGradient(x, y, x + n.w, y + n.h);
+  grad.addColorStop(0, nodeColor + 'cc');
+  grad.addColorStop(1, nodeColor + '88');
+
+  roundRect(ctx, x, y, n.w, n.h, rx);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  if (sel) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '700 11px Segoe UI, system-ui, sans-serif';
+    ctx.fillText('+', n.x + n.w / 2 - 8, n.y - n.h / 2 + 10);
+  }
+
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const startY = n.y - ((n.lines.length - 1) * 20) / 2;
+  n.lines.forEach((line, i) => ctx.fillText(line, n.x, startY + i * 20));
+
+  if (n.tags?.length) {
+    ctx.font = '500 9px Segoe UI, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText('🏷 ' + n.tags.slice(0, 2).join(', '), n.x, y + n.h - 6);
+  }
+  if (n.reminder?.datetime) {
+    ctx.fillStyle = '#e9c46a';
+    ctx.font = '600 10px Segoe UI, system-ui, sans-serif';
+    ctx.fillText('🔔', n.x + n.w / 2 - 8, y - 4);
+  }
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+  c.closePath();
+}
+
+function hitTest(mx, my) {
+  const x = (mx - state.panX) / state.zoom;
+  const y = (my - state.panY) / state.zoom;
+  for (let i = state.nodes.length - 1; i >= 0; i--) {
+    const n = state.nodes[i];
+    if (x >= n.x - n.w / 2 && x <= n.x + n.w / 2 && y >= n.y - n.h / 2 && y <= n.y + n.h / 2)
+      return n;
+  }
+  return null;
+}
+
+function fitView() {
+  if (!state.nodes.length) return;
+  const wrap = canvas.parentElement;
+  const pad = 60;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of state.nodes) {
+    minX = Math.min(minX, n.x - n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  }
+  const bw = maxX - minX + pad * 2;
+  const bh = maxY - minY + pad * 2;
+  const zx = wrap.clientWidth / bw;
+  const zy = wrap.clientHeight / bh;
+  state.zoom = Math.min(zx, zy, 1.5);
+  state.panX = wrap.clientWidth / 2 - ((minX + maxX) / 2) * state.zoom;
+  state.panY = wrap.clientHeight / 2 - ((minY + maxY) / 2) * state.zoom;
+  render();
+}
+
+// ─── Interacción canvas ──────────────────────────────────────
+function getCanvasCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+  const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+  return { mx: cx - rect.left, my: cy - rect.top };
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.target.closest?.('#node-popup')) return;
+  const { mx, my } = getCanvasCoords(e);
+  const node = hitTest(mx, my);
+  if (node) {
+    state.pointerDown = { mx, my, node, moved: false };
+    state.dragging = { node, ox: mx, oy: my, nx: node.x, ny: node.y };
+    state.selectedId = node.id;
+    updateEditPanel();
+    canvas.classList.add('dragging');
+  } else {
+    hideNodePopup();
+    state.panning = true;
+    state.panStart = { x: mx - state.panX, y: my - state.panY };
+    canvas.classList.add('dragging');
+  }
+  render();
+});
+
+canvas.addEventListener('mousemove', e => {
+  const { mx, my } = getCanvasCoords(e);
+  if (state.pointerDown && !state.pointerDown.moved) {
+    const dx = mx - state.pointerDown.mx;
+    const dy = my - state.pointerDown.my;
+    if (Math.hypot(dx, dy) > 6) state.pointerDown.moved = true;
+  }
+  if (state.dragging) {
+    const d = state.dragging;
+    d.node.x = d.nx + (mx - d.ox) / state.zoom;
+    d.node.y = d.ny + (my - d.oy) / state.zoom;
+    render();
+    if ($('node-popup').style.display === 'flex') showNodePopup(d.node);
+  } else if (state.panning) {
+    state.panX = mx - state.panStart.x;
+    state.panY = my - state.panStart.y;
+    render();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (state.pointerDown && !state.pointerDown.moved && state.pointerDown.node) {
+    showNodePopup(state.pointerDown.node);
+  }
+  state.pointerDown = null;
+  state.dragging = null;
+  state.panning = false;
+  canvas.classList.remove('dragging');
+});
+
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    const touch = e.touches[0];
+    canvas.dispatchEvent(new MouseEvent('mousedown', {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      bubbles: true,
+    }));
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchend', e => {
+  if (e.changedTouches.length === 1) {
+    const touch = e.changedTouches[0];
+    canvas.dispatchEvent(new MouseEvent('mouseup', {
+      clientX: touch.clientX,
+      clientY: touch.clientY,
+      bubbles: true,
+    }));
+  }
+}, { passive: true });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.92 : 1.08;
+  const newZoom = Math.min(2.5, Math.max(0.2, state.zoom * delta));
+  state.panX = mx - (mx - state.panX) * (newZoom / state.zoom);
+  state.panY = my - (my - state.panY) * (newZoom / state.zoom);
+  state.zoom = newZoom;
+  render();
+}, { passive: false });
+
+canvas.addEventListener('dblclick', e => {
+  const rect = canvas.getBoundingClientRect();
+  const node = hitTest(e.clientX - rect.left, e.clientY - rect.top);
+  if (node) openEditModal(node);
+});
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const { mx, my } = getCanvasCoords(e);
+  const node = hitTest(mx, my);
+  if (node) showNodePopup(node);
+  else hideNodePopup();
+});
+
+// ─── Transcripción ───────────────────────────────────────────
+const PROVIDER_HINTS = {
+  browser: 'Reconocimiento de voz nativo del navegador. Funciona en Chrome/Edge. Graba o sube audio.',
+  gemini: 'Gemini transcribe audio directamente. Necesitas API key gratis de Google AI Studio.',
+  openai: 'Whisper de OpenAI. Alta calidad pero requiere créditos de pago.',
+  groq: 'Whisper en Groq — muy rápido y con tier gratuito generoso.',
+};
+
+$('transcribe-provider').addEventListener('change', e => {
+  $('provider-hint').textContent = PROVIDER_HINTS[e.target.value];
+  updateMapProviderHint();
+});
+
+async function transcribeAudio() {
+  const provider = $('transcribe-provider').value;
+  const status = $('transcribe-status');
+
+  if (!state.audioBlob && !state.audioFile) {
+    setStatus(status, 'Sube o graba un audio primero', 'error');
+    return;
+  }
+
+  const blob = state.audioBlob || state.audioFile;
+  setStatus(status, 'Transcribiendo...', 'loading');
+
+  try {
+    let text = '';
+    if (provider === 'browser') {
+      text = await transcribeBrowser(blob);
+    } else if (provider === 'gemini') {
+      text = await transcribeGemini(blob, status);
+    } else if (provider === 'openai') {
+      text = await transcribeOpenAI(blob);
+    } else if (provider === 'groq') {
+      text = await transcribeGroq(blob);
+    }
+
+    state.transcript = text.trim();
+    $('transcript-text').textContent = state.transcript;
+    $('transcript-card').style.display = 'block';
+    updateMapProviderHint();
+    setStatus(status, `✓ Transcripción completada (${state.transcript.length} caracteres)`, 'ok');
+  } catch (err) {
+    const msg = $('transcribe-provider').value === 'gemini' ? formatGeminiError(err.message) : err.message;
+    setStatus(status, 'Error: ' + msg, 'error');
+    console.error(err);
+  }
+}
+
+async function transcribeBrowser(blob) {
+  // Web Speech API no acepta archivos directamente — reproducimos y usamos reconocimiento en vivo
+  // Alternativa: usar AudioContext + mostrar que solo funciona con grabación en vivo
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    throw new Error('Tu navegador no soporta Web Speech API. Usa Chrome/Edge o cambia a Gemini.');
+  }
+
+  return new Promise((resolve, reject) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    const audio = new Audio(URL.createObjectURL(blob));
+    let transcript = '';
+
+    recognition.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) transcript += e.results[i][0].transcript + ' ';
+      }
+    };
+    recognition.onerror = e => reject(new Error(e.error));
+    recognition.onend = () => resolve(transcript || 'No se detectó voz. Prueba con Gemini para archivos.');
+
+    recognition.start();
+    audio.play();
+    audio.onended = () => setTimeout(() => recognition.stop(), 800);
+  });
+}
+
+async function transcribeGemini(blob, statusEl) {
+  const key = loadSettings().gemini;
+  if (!key) throw new Error('Configura tu API key de Gemini en ⚙️ APIs');
+
+  const base64 = await blobToBase64(blob);
+  const mime = blob.type || 'audio/webm';
+
+  const { data, model } = await callGeminiWithFallback(
+    key,
+    () => ({
+      contents: [{
+        parts: [
+          { text: 'Transcribe este audio al español. Devuelve SOLO el texto transcrito, sin comentarios ni formato adicional.' },
+          { inline_data: { mime_type: mime, data: base64 } }
+        ]
+      }]
+    }),
+    (model) => { if (statusEl) setStatus(statusEl, `Transcribiendo con ${model}...`, 'loading'); }
+  );
+
+  if (statusEl) setStatus(statusEl, `✓ Transcrito con ${model}`, 'loading');
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
+
+async function transcribeOpenAI(blob) {
+  const key = loadSettings().openai;
+  if (!key) throw new Error('Configura tu API key de OpenAI en ⚙️ APIs');
+
+  const form = new FormData();
+  form.append('file', blob, 'audio.webm');
+  form.append('model', 'whisper-1');
+  form.append('language', 'es');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `OpenAI error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.text || '';
+}
+
+async function transcribeGroq(blob) {
+  const key = loadSettings().groq;
+  if (!key) throw new Error('Configura tu API key de Groq en ⚙️ APIs');
+
+  const form = new FormData();
+  form.append('file', blob, 'audio.webm');
+  form.append('model', 'whisper-large-v3-turbo');
+  form.append('language', 'es');
+
+  const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Groq error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.text || '';
+}
+
+// ─── Generación de mapa con IA ───────────────────────────────
+const MAP_PROMPT = `Eres un experto en mapas mentales. Analiza el siguiente texto y genera una estructura jerárquica de mapa mental.
+
+REGLAS:
+- Identifica el tema central principal
+- Organiza ideas en ramas lógicas (máximo 6 ramas principales)
+- Cada rama puede tener sub-ramas (máximo 4 niveles de profundidad)
+- Usa etiquetas cortas y claras (máximo 6 palabras por nodo)
+- Responde ÚNICAMENTE con JSON válido, sin markdown ni explicaciones
+
+FORMATO EXACTO:
+{
+  "title": "Tema Central",
+  "children": [
+    {
+      "title": "Rama 1",
+      "children": [
+        { "title": "Sub-idea" }
+      ]
+    }
+  ]
+}
+
+TEXTO A ANALIZAR:
+`;
+
+async function generateMindMap(text, statusEl) {
+  const settings = loadSettings();
+  const provider = getEffectiveMapProvider();
+
+  if (statusEl) {
+    setStatus(statusEl, `Generando mapa con ${MAP_PROVIDER_LABELS[provider] || provider}...`, 'loading');
+  }
+
+  if (provider === 'gemini') {
+    if (!settings.gemini) throw new Error('Configura API key de Gemini en ⚙️ APIs, o usa Groq');
+    return callGeminiText(settings.gemini, MAP_PROMPT + text, statusEl);
+  } else if (provider === 'openai') {
+    if (!settings.openai) throw new Error('Configura API key de OpenAI en ⚙️ APIs');
+    return callOpenAIText(settings.openai, MAP_PROMPT + text);
+  } else if (provider === 'groq') {
+    if (!settings.groq) throw new Error('Configura API key de Groq en ⚙️ APIs');
+    return callGroqText(settings.groq, MAP_PROMPT + text);
+  }
+  throw new Error('Proveedor de IA no configurado');
+}
+
+async function callGeminiText(key, prompt, statusEl) {
+  const { data } = await callGeminiWithFallback(
+    key,
+    () => ({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, responseMimeType: 'application/json' }
+    }),
+    (model) => { if (statusEl) setStatus(statusEl, `Generando mapa con ${model}...`, 'loading'); }
+  );
+  return parseJSONResponse(data.candidates?.[0]?.content?.parts?.[0]?.text);
+}
+
+async function callOpenAIText(key, prompt) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `OpenAI ${res.status}`);
+  }
+  const data = await res.json();
+  return parseJSONResponse(data.choices?.[0]?.message?.content);
+}
+
+async function callGroqText(key, prompt) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.3,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Groq ${res.status}`);
+  }
+  const data = await res.json();
+  return parseJSONResponse(data.choices?.[0]?.message?.content);
+}
+
+function parseJSONResponse(raw) {
+  if (!raw) throw new Error('Respuesta vacía de la IA');
+  let cleaned = raw.trim();
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    throw new Error('La IA no devolvió JSON válido. Intenta de nuevo.');
+  }
+}
+
+async function applyGeneratedMap(text, statusEl, merge = false) {
+  setStatus(statusEl, 'Generando mapa mental con IA...', 'loading');
+  try {
+    const tree = await generateMindMap(text, statusEl);
+    const wasPlaceholder = isPlaceholderMap();
+    const shouldMerge = merge && state.nodes.length > 0 && !wasPlaceholder;
+    pushHistory();
+    if (shouldMerge) {
+      const root = mergeTreeIntoMap(tree);
+      $('central-topic').value = root.label;
+      applyVibrantNodeColors();
+      fitView();
+      render();
+      setStatus(statusEl, '✓ Ramas añadidas al mapa actual', 'ok');
+    } else {
+      resetMapCanvas();
+      const wrap = canvas.parentElement;
+      buildFromTree(tree, wrap.clientWidth / 2, wrap.clientHeight / 2);
+      applyVibrantNodeColors();
+      fitView();
+      render();
+      $('central-topic').value = tree.title || '';
+      state.lastSummary = '';
+      $('summary-card').style.display = 'none';
+      setStatus(statusEl, wasPlaceholder && merge
+        ? '✓ Mapa generado (se reemplazó el mapa de ejemplo)'
+        : '✓ Mapa mental generado correctamente', 'ok');
+    }
+    scheduleSave();
+  } catch (err) {
+    const msg = getEffectiveMapProvider() === 'gemini' ? formatGeminiError(err.message) : err.message;
+    setStatus(statusEl, 'Error al generar mapa: ' + msg, 'error');
+  }
+}
+
+// ─── Resumen y expansión con IA ──────────────────────────────
+const SUMMARY_PROMPT = `Analiza este mapa mental (JSON) y escribe un resumen claro en español.
+
+INSTRUCCIONES:
+- Explica el tema central en 1-2 frases
+- Resume cada rama principal y sus ideas clave
+- Usa viñetas para organizar
+- Sé conciso pero completo (150-300 palabras)
+- No uses markdown, solo texto plano
+
+MAPA MENTAL:
+`;
+
+const EXPAND_PROMPT = `Eres un experto en mapas mentales. El usuario quiere EXPANDIR un tema con más sub-ideas.
+
+Tema a expandir: "{{TOPIC}}"
+Ruta en el mapa: {{PATH}}
+Sub-temas que ya existen (NO repetir): {{EXISTING}}
+
+Genera entre 3 y 5 sub-temas NUEVOS, específicos y útiles que profundicen en "{{TOPIC}}".
+Responde ÚNICAMENTE con JSON válido, sin markdown:
+{
+  "children": [
+    { "title": "Sub-tema 1" },
+    { "title": "Sub-tema 2" }
+  ]
+}`;
+
+const SCRIPT_FORMAT_LABELS = {
+  short: 'Short / Reel (30–90 segundos)',
+  medium: 'Video medio (8–15 minutos)',
+  long: 'Video largo (20+ minutos)',
+};
+
+const SCRIPT_TONE_LABELS = {
+  educativo: 'Educativo y claro',
+  entretenido: 'Entretenido y dinámico',
+  tutorial: 'Tutorial paso a paso',
+  opinion: 'Opinión o análisis personal',
+};
+
+const SCRIPT_PROMPT = `Eres un guionista y estratega de contenido para YouTube y redes. A partir de este mapa mental (JSON), crea un GUION DE APOYO para grabar un video.
+
+TEMA CENTRAL: {{TOPIC}}
+FORMATO: {{FORMAT}}
+TONO: {{TONE}}
+
+{{SEARCH_INSTRUCTION}}
+
+ESTRUCTURA OBLIGATORIA (usa estos títulos en MAYÚSCULAS):
+
+TÍTULOS SUGERIDOS
+- Un título principal y 2 alternativas optimizadas para clics
+
+GANCHO DE APERTURA
+- Primeros 30–60 segundos: qué decir para enganchar (frases literales sugeridas)
+
+DESARROLLO POR SECCIONES
+- Una sección por cada rama principal del mapa
+- En cada sección incluye:
+  · QUÉ DECIR: puntos clave y frases que puede leer o parafrasear
+  · QUÉ MOSTRAR: b-roll, pantalla, gráficos, ejemplos visuales
+  · TRANSICIÓN: cómo pasar a la siguiente sección
+
+IDEAS PARA DIFERENCIARTE
+- 3–5 ángulos originales que pocos videos del nicho cubren bien
+
+INSPIRACIÓN YOUTUBE
+- Qué tipo de videos compiten en este tema
+- Preguntas frecuentes de la audiencia
+- 5 búsquedas concretas en YouTube para investigar más
+- Referencias a tendencias o formatos que funcionan (no inventes URLs)
+
+CIERRE Y CTA
+- Cómo cerrar el video y qué pedir al espectador (suscribirse, comentar, etc.)
+
+PREGUNTAS DE LA AUDIENCIA
+- 5 preguntas probables en comentarios y respuestas sugeridas
+
+Responde en español. Texto claro y accionable. Sin markdown (#). Sin JSON.
+
+MAPA MENTAL:
+`;
+
+const SCRIPT_PROMPT_NO_SEARCH = `Nota: no tienes acceso a búsqueda en vivo. Basa el guion en el mapa y tu conocimiento del nicho. Indica claramente qué debería buscar el creador en YouTube para validar ideas.`;
+
+const SCRIPT_PROMPT_WITH_SEARCH = `IMPORTANTE: Usa Google Search para investigar en la web y YouTube sobre "{{TOPIC}}" y sus ramas ANTES de escribir el guion.
+- Mira qué videos populares existen, qué ángulos usan y qué les falta.
+- Cita tendencias reales y preguntas que la gente busca.
+- En INSPIRACIÓN YOUTUBE, menciona tipos de videos o canales representativos (no inventes estadísticas).`;
+
+async function callAIPlainText(prompt, statusEl, loadingMsg) {
+  const settings = loadSettings();
+  const provider = getEffectiveMapProvider();
+  if (statusEl && loadingMsg) setStatus(statusEl, loadingMsg, 'loading');
+
+  if (provider === 'gemini') {
+    if (!settings.gemini) throw new Error('Configura API key de Gemini en ⚙️ APIs');
+    const { data } = await callGeminiWithFallback(
+      settings.gemini,
+      () => ({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4 },
+      }),
+      (model) => { if (statusEl) setStatus(statusEl, `Procesando con ${model}...`, 'loading'); }
+    );
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  }
+  if (provider === 'groq') {
+    if (!settings.groq) throw new Error('Configura API key de Groq en ⚙️ APIs');
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.groq}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Groq ${res.status}`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || '';
+  }
+  if (provider === 'openai') {
+    if (!settings.openai) throw new Error('Configura API key de OpenAI en ⚙️ APIs');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.openai}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `OpenAI ${res.status}`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content?.trim() || '';
+  }
+  throw new Error('Proveedor de IA no configurado');
+}
+
+async function callAIForExpand(prompt, statusEl) {
+  const settings = loadSettings();
+  const provider = getEffectiveMapProvider();
+
+  if (provider === 'gemini') {
+    if (!settings.gemini) throw new Error('Configura API key de Gemini');
+    const { data } = await callGeminiWithFallback(
+      settings.gemini,
+      () => ({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.5, responseMimeType: 'application/json' },
+      }),
+      (model) => { if (statusEl) setStatus(statusEl, `Expandiendo con ${model}...`, 'loading'); }
+    );
+    return parseJSONResponse(data.candidates?.[0]?.content?.parts?.[0]?.text);
+  }
+  if (provider === 'groq') {
+    if (!settings.groq) throw new Error('Configura API key de Groq');
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.groq}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Groq ${res.status}`);
+    }
+    const data = await res.json();
+    return parseJSONResponse(data.choices?.[0]?.message?.content);
+  }
+  if (provider === 'openai') {
+    if (!settings.openai) throw new Error('Configura API key de OpenAI');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.openai}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `OpenAI ${res.status}`);
+    }
+    const data = await res.json();
+    return parseJSONResponse(data.choices?.[0]?.message?.content);
+  }
+  throw new Error('Proveedor de IA no configurado');
+}
+
+async function generateMapSummary(statusEl, showModal = false) {
+  const tree = treeToJSON();
+  if (!tree) throw new Error('No hay mapa para resumir');
+
+  if (state.isSummarizing) return;
+  state.isSummarizing = true;
+
+  try {
+    const prompt = SUMMARY_PROMPT + JSON.stringify(tree, null, 2);
+    const label = MAP_PROVIDER_LABELS[getEffectiveMapProvider()] || 'IA';
+    const summary = await callAIPlainText(prompt, statusEl, `Generando resumen con ${label}...`);
+
+    if (!summary) throw new Error('La IA no devolvió un resumen');
+
+    state.lastSummary = summary;
+    $('summary-content').textContent = summary;
+    $('modal-summary-content').textContent = summary;
+    $('summary-card').style.display = 'block';
+
+    if (showModal) $('modal-summary').classList.add('open');
+    if (statusEl) setStatus(statusEl, '✓ Resumen generado correctamente', 'ok');
+    return summary;
+  } catch (err) {
+    const msg = getEffectiveMapProvider() === 'gemini' ? formatGeminiError(err.message) : err.message;
+    if (statusEl) setStatus(statusEl, 'Error: ' + msg, 'error');
+    throw err;
+  } finally {
+    state.isSummarizing = false;
+  }
+}
+
+function updateScriptSearchHint() {
+  const hasGemini = !!loadSettings().gemini;
+  const cb = $('script-use-search');
+  const status = $('script-status');
+  if (cb) {
+    cb.disabled = !hasGemini;
+    if (!hasGemini) cb.checked = false;
+  }
+  if (status && !status.classList.contains('loading') && !status.classList.contains('ok') && !status.classList.contains('error')) {
+    setStatus(status, hasGemini
+      ? 'Gemini activo: puede buscar en web/YouTube al generar'
+      : 'Sin Gemini: guion sin búsqueda en vivo (usa Groq/OpenAI o añade Gemini)', '');
+  }
+}
+
+function formatGroundingSources(grounding) {
+  if (!grounding) return '';
+  const parts = [];
+  const queries = grounding.webSearchQueries || grounding.web_search_queries;
+  if (queries?.length) {
+    parts.push('Búsquedas realizadas: ' + queries.join(' · '));
+  }
+  const chunks = grounding.groundingChunks || grounding.grounding_chunks || [];
+  const links = [];
+  chunks.forEach(chunk => {
+    const web = chunk.web || chunk.retrievedContext?.web;
+    const uri = web?.uri || web?.url;
+    const title = web?.title || uri;
+    if (uri && !links.some(l => l.uri === uri)) links.push({ uri, title });
+  });
+  if (links.length) {
+    parts.push('Fuentes consultadas:\n' + links.slice(0, 8).map(l => `· ${l.title}\n  ${l.uri}`).join('\n'));
+  }
+  return parts.join('\n\n');
+}
+
+function renderScriptSources(el, sourcesText) {
+  if (!el) return;
+  if (sourcesText?.trim()) {
+    el.textContent = sourcesText;
+    el.style.display = 'block';
+  } else {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+}
+
+function buildScriptPrompt(tree) {
+  const topic = $('central-topic')?.value.trim() || tree.title || 'Tema del mapa';
+  const format = SCRIPT_FORMAT_LABELS[$('script-format')?.value || 'medium'] || SCRIPT_FORMAT_LABELS.medium;
+  const tone = SCRIPT_TONE_LABELS[$('script-tone')?.value || 'educativo'] || SCRIPT_TONE_LABELS.educativo;
+  const useSearch = !!loadSettings().gemini && $('script-use-search')?.checked !== false;
+  const searchInstruction = useSearch
+    ? SCRIPT_PROMPT_WITH_SEARCH.replace(/\{\{TOPIC\}\}/g, topic)
+    : SCRIPT_PROMPT_NO_SEARCH;
+  return SCRIPT_PROMPT
+    .replace('{{TOPIC}}', topic)
+    .replace('{{FORMAT}}', format)
+    .replace('{{TONE}}', tone)
+    .replace('{{SEARCH_INSTRUCTION}}', searchInstruction)
+    + JSON.stringify(tree, null, 2);
+}
+
+async function callGeminiWithSearch(key, prompt, statusEl, loadingMsg) {
+  const models = getGeminiModels();
+  let lastErr = '';
+  for (const model of models) {
+    try {
+      if (statusEl) setStatus(statusEl, loadingMsg || `Buscando en web/YouTube con ${model}...`, 'loading');
+      const data = await callGeminiRaw(key, model, {
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: { temperature: 0.55 },
+      });
+      const candidate = data.candidates?.[0];
+      const text = (candidate?.content?.parts || [])
+        .map(p => p.text).filter(Boolean).join('\n').trim();
+      const grounding = candidate?.groundingMetadata || candidate?.grounding_metadata || null;
+      return { text, grounding };
+    } catch (e) {
+      lastErr = e.message;
+      if (!isGeminiRetryableError(lastErr)) throw new Error(formatGeminiError(lastErr));
+    }
+  }
+  throw new Error(formatGeminiError(lastErr));
+}
+
+function applyScriptResult(script, sourcesText, statusEl, showModal) {
+  state.lastScript = script;
+  state.lastScriptSources = sourcesText || '';
+  $('script-content').textContent = script;
+  $('modal-script-content').textContent = script;
+  renderScriptSources($('script-sources'), sourcesText);
+  renderScriptSources($('modal-script-sources'), sourcesText);
+  $('script-card').style.display = 'block';
+  if (showModal) $('modal-script').classList.add('open');
+  scheduleSave();
+  if (statusEl) {
+    setStatus(statusEl, sourcesText
+      ? '✓ Guion generado con inspiración de web/YouTube'
+      : '✓ Guion generado (sin búsqueda en vivo)', 'ok');
+  }
+}
+
+async function generateVideoScript(statusEl, showModal = false) {
+  const tree = treeToJSON();
+  if (!tree) throw new Error('No hay mapa para crear el guion');
+  if (state.isGeneratingScript) return;
+
+  state.isGeneratingScript = true;
+  $('btn-generate-script').disabled = true;
+
+  try {
+    const prompt = buildScriptPrompt(tree);
+    const settings = loadSettings();
+    const useSearch = !!settings.gemini && $('script-use-search')?.checked !== false;
+
+    if (useSearch) {
+      const { text, grounding } = await callGeminiWithSearch(
+        settings.gemini,
+        prompt,
+        statusEl,
+        'Investigando YouTube y generando guion...'
+      );
+      if (!text) throw new Error('Gemini no devolvió un guion');
+      applyScriptResult(text, formatGroundingSources(grounding), statusEl, showModal);
+      return text;
+    }
+
+    const label = MAP_PROVIDER_LABELS[getEffectiveMapProvider()] || 'IA';
+    const script = await callAIPlainText(prompt, statusEl, `Generando guion con ${label}...`);
+    if (!script) throw new Error('La IA no devolvió un guion');
+    applyScriptResult(script, '', statusEl, showModal);
+    return script;
+  } catch (err) {
+    const useGeminiSearch = !!loadSettings().gemini && $('script-use-search')?.checked;
+    const msg = useGeminiSearch ? formatGeminiError(err.message) : err.message;
+    if (statusEl) setStatus(statusEl, 'Error: ' + msg, 'error');
+    throw err;
+  } finally {
+    state.isGeneratingScript = false;
+    $('btn-generate-script').disabled = false;
+  }
+}
+
+async function expandNodeWithAI(nodeId, statusEl) {
+  const node = state.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  if (state.isExpanding) return;
+  state.isExpanding = true;
+  $('btn-expand-node').disabled = true;
+  $('btn-popup-expand').disabled = true;
+
+  try {
+    const ctx = getNodeContext(node);
+    const prompt = EXPAND_PROMPT
+      .replace(/\{\{TOPIC\}\}/g, node.label)
+      .replace('{{PATH}}', ctx.path)
+      .replace('{{EXISTING}}', ctx.existingChildren.length ? ctx.existingChildren.join(', ') : 'ninguno');
+
+    const result = await callAIForExpand(prompt, statusEl);
+    const titles = (result.children || []).map(c => c.title || c.label).filter(Boolean);
+    const existing = getChildren(node.id);
+    const newTitles = titles.filter(t => t && !existing.some(c => c.label.toLowerCase() === t.toLowerCase()));
+
+    if (!newTitles.length) {
+      if (statusEl) setStatus(statusEl, 'No se añadieron temas nuevos (ya existían o la IA no generó ideas).', 'error');
+    } else {
+      pushHistory();
+      const added = addExpandedChildren(node, titles);
+      applyVibrantNodeColors();
+      fitView();
+      render();
+      scheduleSave();
+      if (statusEl) setStatus(statusEl, `✓ Se añadieron ${added} sub-temas a "${node.label}"`, 'ok');
+      showNodePopup(node);
+    }
+  } catch (err) {
+    const msg = getEffectiveMapProvider() === 'gemini' ? formatGeminiError(err.message) : err.message;
+    if (statusEl) setStatus(statusEl, 'Error al expandir: ' + msg, 'error');
+  } finally {
+    state.isExpanding = false;
+    updateEditPanel();
+    $('btn-popup-expand').disabled = false;
+  }
+}
+
+// ─── Audio: subir y grabar ───────────────────────────────────
+const dropzone = $('dropzone');
+const audioInput = $('audio-file');
+
+dropzone.addEventListener('click', () => audioInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) loadAudioFile(e.dataTransfer.files[0]);
+});
+audioInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadAudioFile(e.target.files[0]);
+});
+
+function loadAudioFile(file) {
+  if (file.size > 20 * 1024 * 1024) {
+    setStatus($('transcribe-status'), 'Archivo demasiado grande (máx. 20 MB)', 'error');
+    return;
+  }
+  state.audioFile = file;
+  state.audioBlob = file;
+  $('audio-info').textContent = `📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+  setStatus($('transcribe-status'), 'Audio cargado. Listo para transcribir.', 'ok');
+}
+
+// Grabación
+function clearRecTimer() {
+  if (state.recTimer !== null) {
+    clearInterval(state.recTimer);
+    state.recTimer = null;
+  }
+}
+
+function updateRecTimerDisplay() {
+  const m = String(Math.floor(state.recSeconds / 60)).padStart(2, '0');
+  const s = String(state.recSeconds % 60).padStart(2, '0');
+  $('rec-timer').textContent = `${m}:${s}`;
+}
+
+function resetRecordingUI() {
+  clearRecTimer();
+  state.isRecording = false;
+  state.isStartingRecord = false;
+  $('btn-record').classList.remove('recording');
+  $('btn-record').disabled = false;
+  $('btn-stop-record').disabled = true;
+}
+
+function stopRecording() {
+  clearRecTimer();
+  if (state.mediaRecorder?.state === 'recording') {
+    state.mediaRecorder.stop();
+  } else {
+    resetRecordingUI();
+    if (state.mediaStream) {
+      state.mediaStream.getTracks().forEach(t => t.stop());
+      state.mediaStream = null;
+    }
+  }
+}
+
+async function startRecording() {
+  if (state.isRecording || state.isStartingRecord) return;
+
+  state.isStartingRecord = true;
+  $('btn-record').disabled = true;
+  clearRecTimer();
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(getAudioConstraints());
+    if (!state.isStartingRecord) {
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+
+    state.mediaStream = stream;
+    state.recordedChunks = [];
+    state.mediaRecorder = new MediaRecorder(stream);
+    state.mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) state.recordedChunks.push(e.data);
+    };
+    state.mediaRecorder.onstop = () => {
+      clearRecTimer();
+      state.audioBlob = new Blob(state.recordedChunks, { type: 'audio/webm' });
+      state.audioFile = null;
+      $('audio-info').textContent = `🎤 Grabación (${(state.audioBlob.size / 1024).toFixed(1)} KB)`;
+      setStatus($('transcribe-status'), 'Grabación lista. Pulsa Transcribir.', 'ok');
+      if (state.mediaStream) {
+        state.mediaStream.getTracks().forEach(t => t.stop());
+        state.mediaStream = null;
+      }
+      resetRecordingUI();
+    };
+
+    state.mediaRecorder.start(250);
+    state.isRecording = true;
+    state.isStartingRecord = false;
+    state.recSeconds = 0;
+    updateRecTimerDisplay();
+    $('btn-record').classList.add('recording');
+    $('btn-record').disabled = false;
+    $('btn-stop-record').disabled = false;
+
+    state.recTimer = setInterval(() => {
+      state.recSeconds++;
+      updateRecTimerDisplay();
+    }, 1000);
+  } catch (err) {
+    resetRecordingUI();
+    setStatus($('transcribe-status'), 'Micrófono no disponible: ' + err.message, 'error');
+  }
+}
+
+$('btn-record').addEventListener('click', () => {
+  if (state.isRecording || state.isStartingRecord) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+});
+
+$('btn-stop-record').addEventListener('click', () => {
+  stopRecording();
+});
+
+// ─── Panel edición ───────────────────────────────────────────
+function updateEditPanel() {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  const hasSel = !!n;
+  $('node-label').disabled = !hasSel;
+  $('btn-expand-node').disabled = !hasSel || state.isExpanding;
+  $('btn-add-child').disabled = !hasSel;
+  $('btn-add-sibling').disabled = !hasSel || !n?.parentId;
+  $('btn-delete-node').disabled = !hasSel || !n?.parentId;
+  $('node-tags').disabled = !hasSel;
+  $('node-color-picker').disabled = !hasSel;
+  $('btn-apply-node-style').disabled = !hasSel;
+  $('btn-set-reminder').disabled = !hasSel;
+  $('btn-clear-reminder').disabled = !hasSel || !n?.reminder;
+  $('node-reminder-dt').disabled = !hasSel;
+  $('node-reminder-note').disabled = !hasSel;
+  $('btn-mark-link-source').disabled = !hasSel;
+  $('btn-create-link').disabled = !hasSel || !state.linkSourceId || state.linkSourceId === state.selectedId;
+  $('btn-remove-links').disabled = !hasSel;
+  if (n) {
+    $('node-label').value = n.label;
+    $('node-tags').value = (n.tags || []).join(', ');
+    $('node-color-picker').value = n.customColor || n.color || '#52b788';
+    $('node-reminder-dt').value = n.reminder?.datetime || '';
+    $('node-reminder-note').value = n.reminder?.note || '';
+    document.querySelectorAll('.color-swatch').forEach(s => {
+      s.classList.toggle('active', s.dataset.color === (n.customColor || ''));
+    });
+  }
+  const src = state.linkSourceId ? state.nodes.find(x => x.id === state.linkSourceId) : null;
+  setStatus($('link-status'), src ? `Origen: "${src.label}" → selecciona destino` : 'Origen: ninguno — selecciona nodo y marca origen', '');
+}
+
+function applyNodeStyle() {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (!n) return;
+  pushHistory();
+  n.tags = $('node-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+  n.customColor = $('node-color-picker').value;
+  measureNode(n);
+  render();
+  scheduleSave();
+}
+
+function setNodeReminder() {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (!n || !$('node-reminder-dt').value) return;
+  pushHistory();
+  n.reminder = {
+    datetime: $('node-reminder-dt').value,
+    note: $('node-reminder-note').value.trim(),
+    notified: false,
+  };
+  if (Notification.permission === 'default') Notification.requestPermission();
+  render();
+  scheduleSave();
+  setStatus($('expand-status'), '✓ Recordatorio guardado', 'ok');
+}
+
+function clearNodeReminder() {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (!n) return;
+  pushHistory();
+  n.reminder = null;
+  render();
+  scheduleSave();
+}
+
+function createCrossLink(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  const exists = state.crossLinks.some(l =>
+    (l.from === fromId && l.to === toId) || (l.from === toId && l.to === fromId));
+  if (exists) return;
+  pushHistory();
+  state.crossLinks.push({ id: 'l' + Date.now(), from: fromId, to: toId });
+  scheduleSave();
+  render();
+}
+
+function removeLinksForNode(nodeId) {
+  pushHistory();
+  state.crossLinks = state.crossLinks.filter(l => l.from !== nodeId && l.to !== nodeId);
+  scheduleSave();
+  render();
+}
+
+function exportPDF() {
+  if (!state.nodes.length) return alert('No hay mapa para exportar');
+  const tempCanvas = document.createElement('canvas');
+  const pad = 50;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of state.nodes) {
+    minX = Math.min(minX, n.x - n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  }
+  const w = maxX - minX + pad * 2;
+  const h = maxY - minY + pad * 2;
+  tempCanvas.width = w;
+  tempCanvas.height = h;
+  const tctx = tempCanvas.getContext('2d');
+  tctx.fillStyle = '#07100c';
+  tctx.fillRect(0, 0, w, h);
+  const offX = pad - minX;
+  const offY = pad - minY;
+  const root = state.nodes.find(n => !n.parentId);
+  tctx.fillStyle = '#e6f2eb';
+  tctx.font = 'bold 18px Segoe UI, sans-serif';
+  tctx.fillText('MindFlow — ' + (root?.label || 'Mapa mental'), pad, 30);
+
+  for (const e of state.edges) {
+    const from = state.nodes.find(n => n.id === e.from);
+    const to = state.nodes.find(n => n.id === e.to);
+    if (!from || !to) continue;
+    tctx.beginPath();
+    tctx.moveTo(from.x + offX, from.y + offY);
+    tctx.lineTo(to.x + offX, to.y + offY);
+    tctx.strokeStyle = 'rgba(82,183,136,0.4)';
+    tctx.stroke();
+  }
+  for (const link of state.crossLinks) {
+    const from = state.nodes.find(n => n.id === link.from);
+    const to = state.nodes.find(n => n.id === link.to);
+    if (!from || !to) continue;
+    tctx.setLineDash([6, 4]);
+    tctx.beginPath();
+    tctx.moveTo(from.x + offX, from.y + offY);
+    tctx.lineTo(to.x + offX, to.y + offY);
+    tctx.strokeStyle = 'rgba(233,196,106,0.7)';
+    tctx.stroke();
+    tctx.setLineDash([]);
+  }
+  for (const n of state.nodes) {
+    const x = n.x + offX - n.w / 2;
+    const y = n.y + offY - n.h / 2 + 20;
+    const col = n.customColor || n.color;
+    tctx.fillStyle = col;
+    tctx.beginPath();
+    tctx.roundRect(x, y, n.w, n.h, 10);
+    tctx.fill();
+    tctx.fillStyle = '#fff';
+    tctx.font = '600 13px Segoe UI, sans-serif';
+    tctx.textAlign = 'center';
+    n.lines.forEach((line, i) => tctx.fillText(line, n.x + offX, y + n.h / 2 - ((n.lines.length - 1) * 18) / 2 + i * 18));
+  }
+
+  const img = tempCanvas.toDataURL('image/png');
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: w > h ? 'l' : 'p', unit: 'px', format: [w + 40, h + 60] });
+  pdf.addImage(img, 'PNG', 20, 40, w, h);
+  if (state.lastSummary) {
+    pdf.addPage();
+    pdf.setFontSize(11);
+    pdf.text(pdf.splitTextToSize(state.lastSummary, w), 20, 30);
+  }
+  pdf.save((root?.label || 'mindmap').replace(/[^\w\s-]/g, '') + '.pdf');
+}
+
+async function extractTextFromPDF(file) {
+  if (!window.pdfjsLib) throw new Error('PDF.js no cargado');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return text.trim();
+}
+
+async function importExternalFile(file) {
+  setStatus($('import-status'), 'Importando ' + file.name + '...', 'loading');
+  const ext = file.name.split('.').pop().toLowerCase();
+  let text = '';
+  if (ext === 'json') {
+    const data = JSON.parse(await file.text());
+    if (data.nodes) {
+      pushHistory();
+      deserializeWorkspace(data);
+      saveWorkspace();
+      setStatus($('import-status'), '✓ Mapa JSON importado', 'ok');
+      return;
+    }
+    if (data.title || data.children) {
+      pushHistory();
+      loadFromJSON(data);
+      setStatus($('import-status'), '✓ Árbol JSON importado', 'ok');
+      return;
+    }
+  }
+  if (ext === 'pdf') text = await extractTextFromPDF(file);
+  else text = await file.text();
+  if (!text.trim()) throw new Error('Archivo vacío o sin texto');
+  $('direct-text').value = text;
+  document.querySelector('[data-tab="text"]')?.click();
+  await applyGeneratedMap(text, $('import-status'), $('merge-map-text').checked);
+}
+
+function toggleContinuousDictation() {
+  if (state.continuousDictation) {
+    state.dictationRecognition?.stop();
+    state.continuousDictation = false;
+    $('btn-continuous-dictation').textContent = '🎙️ Iniciar dictado continuo';
+    setStatus($('dictation-status'), 'Dictado detenido', 'ok');
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    setStatus($('dictation-status'), 'Usa Chrome/Edge para dictado continuo', 'error');
+    return;
+  }
+  const rec = new SR();
+  rec.lang = 'es-ES';
+  rec.continuous = true;
+  rec.interimResults = true;
+  let lastProcess = 0;
+  rec.onresult = async (e) => {
+    let finalText = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+    }
+    if (finalText.trim()) {
+      state.dictationTranscript += finalText;
+      $('dictation-log').style.display = 'block';
+      $('dictation-log').textContent = state.dictationTranscript;
+      const now = Date.now();
+      if (now - lastProcess > 4000 && finalText.trim().split(' ').length >= 4) {
+        lastProcess = now;
+        setStatus($('dictation-status'), 'Ampliando mapa con lo dicho...', 'loading');
+        try {
+          await applyGeneratedMap(finalText.trim(), $('dictation-status'), true);
+        } catch (err) {
+          setStatus($('dictation-status'), err.message, 'error');
+        }
+      }
+    }
+  };
+  rec.onend = () => { if (state.continuousDictation) rec.start(); };
+  rec.onerror = () => toggleContinuousDictation();
+  rec.start();
+  state.dictationRecognition = rec;
+  state.continuousDictation = true;
+  state.dictationTranscript = '';
+  $('btn-continuous-dictation').textContent = '⏹ Detener dictado continuo';
+  setStatus($('dictation-status'), 'Dictando… habla con pausas para ampliar el mapa', 'ok');
+}
+
+function checkReminders() {
+  const now = Date.now();
+  state.nodes.forEach(n => {
+    if (!n.reminder?.datetime || n.reminder.notified) return;
+    const t = new Date(n.reminder.datetime).getTime();
+    if (t <= now) {
+      n.reminder.notified = true;
+      const msg = n.reminder.note || 'Revisar: ' + n.label;
+      if (Notification.permission === 'granted') {
+        new Notification('MindFlow 🔔', { body: n.label + ' — ' + msg });
+      } else {
+        setStatus($('expand-status'), '🔔 Recordatorio: ' + n.label, 'ok');
+      }
+      scheduleSave();
+    }
+  });
+}
+
+function setupSidebar() {
+  const SIDEBAR_PREFS_KEY = 'mf_sidebar_prefs';
+  const main = $('main-layout');
+  const load = () => {
+    try {
+      const p = JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY) || '{}');
+      return {
+        width: Math.min(Math.max(p.width || 340, 220), window.innerWidth - 200),
+        height: Math.min(Math.max(p.height || 300, 120), window.innerHeight - 150),
+        collapsed: !!p.collapsed,
+      };
+    } catch { return { width: 340, height: 300, collapsed: false }; }
+  };
+  const save = (p) => localStorage.setItem(SIDEBAR_PREFS_KEY, JSON.stringify(p));
+  let prefs = load();
+
+  const setVars = (p) => {
+    main.style.setProperty('--sidebar-w', p.width + 'px');
+    main.style.setProperty('--sidebar-h', p.height + 'px');
+  };
+
+  const apply = (p) => {
+    setVars(p);
+    main.classList.toggle('sidebar-collapsed', !!p.collapsed);
+    const btn = $('sidebar-toggle');
+    btn.textContent = p.collapsed ? '▶' : '◀';
+    btn.title = p.collapsed ? 'Mostrar panel de opciones' : 'Ocultar panel de opciones';
+  };
+
+  const toggleSidebar = () => {
+    prefs.collapsed = !prefs.collapsed;
+    apply(prefs);
+    save(prefs);
+    setTimeout(resizeCanvas, 230);
+  };
+
+  apply(prefs);
+
+  let resizing = false;
+  const resizer = $('sidebar-resizer');
+
+  const onMove = (x, y) => {
+    if (!resizing) return;
+    main.classList.add('sidebar-resizing');
+    if (window.innerWidth <= 900) {
+      const rect = main.getBoundingClientRect();
+      prefs.height = Math.min(Math.max(rect.bottom - y, 120), rect.height - 120);
+      main.style.setProperty('--sidebar-h', prefs.height + 'px');
+    } else {
+      prefs.width = Math.min(Math.max(x, 220), window.innerWidth - 200);
+      main.style.setProperty('--sidebar-w', prefs.width + 'px');
+    }
+  };
+
+  const stop = () => {
+    if (!resizing) return;
+    resizing = false;
+    main.classList.remove('sidebar-resizing');
+    resizer.classList.remove('dragging');
+    save(prefs);
+    resizeCanvas();
+  };
+
+  resizer.addEventListener('mousedown', e => {
+    resizing = true;
+    e.preventDefault();
+    e.stopPropagation();
+    resizer.classList.add('dragging');
+  });
+  resizer.addEventListener('touchstart', e => {
+    resizing = true;
+    e.stopPropagation();
+    resizer.classList.add('dragging');
+  }, { passive: true });
+
+  document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+  document.addEventListener('touchmove', e => {
+    if (resizing && e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+  document.addEventListener('mouseup', stop);
+  document.addEventListener('touchend', stop);
+
+  resizer.addEventListener('dblclick', () => {
+    prefs.width = 340;
+    prefs.height = 300;
+    apply(prefs);
+    save(prefs);
+    resizeCanvas();
+  });
+
+  $('sidebar-toggle').addEventListener('click', toggleSidebar);
+  $('btn-toggle-sidebar').addEventListener('click', toggleSidebar);
+
+  window.addEventListener('resize', () => {
+    if (prefs.width > window.innerWidth - 200) {
+      prefs.width = Math.max(220, window.innerWidth - 200);
+      setVars(prefs);
+    }
+    setTimeout(resizeCanvas, 100);
+  });
+}
+
+function setupPWA() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(() => {
+      setStatus($('pwa-status'), '✓ App lista para modo offline', 'ok');
+    }).catch(() => {
+      setStatus($('pwa-status'), 'Sirve la carpeta con un servidor web local para offline completo', 'error');
+    });
+  }
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    state.deferredInstallPrompt = e;
+    $('btn-install-pwa').style.display = 'inline-flex';
+  });
+  window.addEventListener('online', () => { $('offline-badge').textContent = 'Online'; $('offline-badge').classList.remove('offline'); });
+  window.addEventListener('offline', () => { $('offline-badge').textContent = 'Offline'; $('offline-badge').classList.add('offline'); });
+  if (!navigator.onLine) $('offline-badge').classList.add('offline');
+}
+
+async function installPWA() {
+  if (!state.deferredInstallPrompt) {
+    alert('En móvil: menú del navegador → "Añadir a pantalla de inicio". En PC: icono de instalación en la barra de direcciones.');
+    return;
+  }
+  state.deferredInstallPrompt.prompt();
+  await state.deferredInstallPrompt.userChoice;
+  state.deferredInstallPrompt = null;
+  $('btn-install-pwa').style.display = 'none';
+}
+
+$('node-label').addEventListener('change', e => {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (n) {
+    n.label = e.target.value || 'Nodo';
+    measureNode(n);
+    render();
+  }
+});
+
+$('btn-add-child').addEventListener('click', () => {
+  const parent = state.nodes.find(x => x.id === state.selectedId);
+  if (!parent) return;
+  pushHistory();
+  const children = getChildren(parent.id);
+  const angle = -Math.PI / 2 + (children.length + 1) * (Math.PI / (children.length + 2));
+  const r = 140;
+  const child = createNode('Nueva idea', parent.x + Math.cos(angle) * r, parent.y + Math.sin(angle) * r, parent.id, parent.depth + 1);
+  state.selectedId = child.id;
+  updateEditPanel();
+  render();
+});
+
+$('btn-add-sibling').addEventListener('click', () => {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (!n?.parentId) return;
+  pushHistory();
+  const siblings = getChildren(n.parentId);
+  const parent = state.nodes.find(x => x.id === n.parentId);
+  const idx = siblings.indexOf(n);
+  const angle = -Math.PI / 2 + (idx + 1.5) * (Math.PI / (siblings.length + 1));
+  const r = 140;
+  const sib = createNode('Nueva idea', parent.x + Math.cos(angle) * r, parent.y + Math.sin(angle) * r, parent.id, parent.depth + 1);
+  state.selectedId = sib.id;
+  updateEditPanel();
+  render();
+});
+
+$('btn-delete-node').addEventListener('click', () => {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (n?.parentId) {
+    deleteNode(n.id);
+    state.selectedId = null;
+    updateEditPanel();
+    render();
+  }
+});
+
+$('btn-update-central').addEventListener('click', () => {
+  const root = state.nodes.find(n => !n.parentId);
+  const val = $('central-topic').value.trim();
+  if (root && val) {
+    root.label = val;
+    measureNode(root);
+    render();
+  }
+});
+
+$('btn-expand-node').addEventListener('click', () => {
+  if (!state.selectedId) return;
+  document.querySelector('[data-tab="edit"]')?.click();
+  expandNodeWithAI(state.selectedId, $('expand-status'));
+});
+
+$('btn-popup-expand').addEventListener('click', () => {
+  if (!state.selectedId) return;
+  hideNodePopup();
+  document.querySelector('[data-tab="edit"]')?.click();
+  expandNodeWithAI(state.selectedId, $('expand-status'));
+});
+
+$('btn-popup-edit').addEventListener('click', () => {
+  const n = state.nodes.find(x => x.id === state.selectedId);
+  if (n) {
+    hideNodePopup();
+    openEditModal(n);
+  }
+});
+
+$('btn-generate-summary').addEventListener('click', () => {
+  generateMapSummary($('summary-status'), false);
+});
+
+$('btn-summary').addEventListener('click', async () => {
+  document.querySelector('[data-tab="summary"]')?.click();
+  try {
+    if (state.lastSummary) {
+      $('modal-summary-content').textContent = state.lastSummary;
+      $('modal-summary').classList.add('open');
+    } else {
+      await generateMapSummary($('summary-status'), true);
+    }
+  } catch { /* error shown in status */ }
+});
+
+$('btn-close-summary').addEventListener('click', () => $('modal-summary').classList.remove('open'));
+
+$('btn-generate-script').addEventListener('click', () => {
+  generateVideoScript($('script-status'), false);
+});
+
+$('btn-script').addEventListener('click', async () => {
+  document.querySelector('[data-tab="script"]')?.click();
+  try {
+    if (state.lastScript) {
+      $('modal-script-content').textContent = state.lastScript;
+      renderScriptSources($('modal-script-sources'), state.lastScriptSources);
+      $('modal-script').classList.add('open');
+    } else {
+      await generateVideoScript($('script-status'), true);
+    }
+  } catch { /* error shown in status */ }
+});
+
+$('btn-close-script').addEventListener('click', () => $('modal-script').classList.remove('open'));
+
+function copyScriptToClipboard() {
+  let text = state.lastScript || '';
+  if (state.lastScriptSources) text += '\n\n---\n' + state.lastScriptSources;
+  copyToClipboard(text);
+}
+
+$('btn-copy-script').addEventListener('click', copyScriptToClipboard);
+$('btn-copy-modal-script').addEventListener('click', copyScriptToClipboard);
+
+$('btn-download-script').addEventListener('click', () => {
+  if (!state.lastScript) return;
+  const root = state.nodes.find(n => !n.parentId);
+  const name = (root?.label || 'guion').replace(/[^\w\s-]/g, '').trim();
+  let text = state.lastScript;
+  if (state.lastScriptSources) text += '\n\n---\n' + state.lastScriptSources;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name || 'guion'}-mindflow.txt`;
+  a.click();
+});
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Copiado al portapapeles');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('Copiado al portapapeles');
+  });
+}
+
+$('btn-copy-summary').addEventListener('click', () => copyToClipboard(state.lastSummary));
+$('btn-copy-modal-summary').addEventListener('click', () => copyToClipboard(state.lastSummary));
+
+$('btn-download-summary').addEventListener('click', () => {
+  if (!state.lastSummary) return;
+  const root = state.nodes.find(n => !n.parentId);
+  const name = (root?.label || 'resumen').replace(/[^\w\s-]/g, '').trim();
+  const blob = new Blob([state.lastSummary], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name || 'resumen'}-mindflow.txt`;
+  a.click();
+});
+
+document.addEventListener('click', e => {
+  if (state.popupJustOpened) return;
+  if (!e.target.closest('#node-popup') && !e.target.closest('#mindmap-canvas')) {
+    hideNodePopup();
+  }
+});
+
+// ─── Modal editar ────────────────────────────────────────────
+let editingNode = null;
+function openEditModal(node) {
+  editingNode = node;
+  $('modal-node-input').value = node.label;
+  $('modal-edit').classList.add('open');
+  $('modal-node-input').focus();
+}
+
+$('btn-modal-save').addEventListener('click', () => {
+  if (editingNode) {
+    editingNode.label = $('modal-node-input').value.trim() || 'Nodo';
+    measureNode(editingNode);
+    render();
+  }
+  $('modal-edit').classList.remove('open');
+});
+
+$('btn-modal-cancel').addEventListener('click', () => $('modal-edit').classList.remove('open'));
+
+// ─── Tabs ────────────────────────────────────────────────────
+document.querySelectorAll('.panel-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ─── Header acciones ─────────────────────────────────────────
+$('btn-new').addEventListener('click', () => {
+  if (!confirm('¿Crear mapa nuevo? El actual quedará en el historial.')) return;
+  pushHistory();
+  resetMapCanvas();
+  const wrap = canvas.parentElement;
+  const root = createNode('Mi Mapa Mental', wrap.clientWidth / 2, wrap.clientHeight / 2);
+  state.selectedId = root.id;
+  fitView();
+  render();
+  $('central-topic').value = 'Mi Mapa Mental';
+  state.lastSummary = '';
+  $('summary-card').style.display = 'none';
+  scheduleSave();
+});
+
+$('btn-export').addEventListener('click', () => {
+  const data = treeToJSON();
+  if (!data) return alert('No hay mapa para exportar');
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mindmap.json';
+  a.click();
+});
+
+$('btn-import').addEventListener('click', () => $('import-file').click());
+$('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      loadFromJSON(JSON.parse(reader.result));
+      const root = state.nodes.find(n => !n.parentId);
+      if (root) $('central-topic').value = root.label;
+    } catch { alert('JSON inválido'); }
+  };
+  reader.readAsText(file);
+});
+
+$('btn-png').addEventListener('click', () => {
+  // Render sin transformaciones de pan/zoom para export limpio
+  const tempCanvas = document.createElement('canvas');
+  const pad = 40;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of state.nodes) {
+    minX = Math.min(minX, n.x - n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  }
+  const w = maxX - minX + pad * 2;
+  const h = maxY - minY + pad * 2;
+  tempCanvas.width = w * devicePixelRatio;
+  tempCanvas.height = h * devicePixelRatio;
+  const tctx = tempCanvas.getContext('2d');
+  tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  tctx.fillStyle = '#07100c';
+  tctx.fillRect(0, 0, w, h);
+  const offX = pad - minX;
+  const offY = pad - minY;
+
+  for (const e of state.edges) {
+    const from = state.nodes.find(n => n.id === e.from);
+    const to = state.nodes.find(n => n.id === e.to);
+    if (!from || !to) continue;
+    const fx = from.x + offX, fy = from.y + offY;
+    const tx = to.x + offX, ty = to.y + offY;
+    tctx.beginPath();
+    tctx.moveTo(fx, fy);
+    tctx.quadraticCurveTo((fx + tx) / 2, (fy + ty) / 2, tx, ty);
+    tctx.strokeStyle = 'rgba(82,183,136,0.35)';
+    tctx.lineWidth = 2;
+    tctx.stroke();
+  }
+
+  for (const n of state.nodes) {
+    const x = n.x + offX - n.w / 2;
+    const y = n.y + offY - n.h / 2;
+    const grad = tctx.createLinearGradient(x, y, x + n.w, y + n.h);
+    grad.addColorStop(0, n.color + 'cc');
+    grad.addColorStop(1, n.color + '88');
+    tctx.beginPath();
+    tctx.roundRect(x, y, n.w, n.h, 10);
+    tctx.fillStyle = grad;
+    tctx.fill();
+    tctx.fillStyle = '#fff';
+    tctx.font = '600 14px Segoe UI, system-ui, sans-serif';
+    tctx.textAlign = 'center';
+    tctx.textBaseline = 'middle';
+    const startY = n.y + offY - ((n.lines.length - 1) * 20) / 2;
+    n.lines.forEach((line, i) => tctx.fillText(line, n.x + offX, startY + i * 20));
+  }
+
+  const a = document.createElement('a');
+  a.href = tempCanvas.toDataURL('image/png');
+  a.download = 'mindmap.png';
+  a.click();
+});
+
+// Zoom toolbar
+$('btn-zoom-in').addEventListener('click', () => { state.zoom = Math.min(2.5, state.zoom * 1.15); render(); });
+$('btn-zoom-out').addEventListener('click', () => { state.zoom = Math.max(0.2, state.zoom / 1.15); render(); });
+$('btn-zoom-fit').addEventListener('click', fitView);
+$('btn-center').addEventListener('click', () => {
+  const wrap = canvas.parentElement;
+  const root = state.nodes.find(n => !n.parentId);
+  if (root) {
+    state.panX = wrap.clientWidth / 2 - root.x * state.zoom;
+    state.panY = wrap.clientHeight / 2 - root.y * state.zoom;
+    render();
+  }
+});
+
+// Settings modal
+$('btn-settings').addEventListener('click', () => {
+  const s = loadSettings();
+  $('api-gemini').value = s.gemini;
+  $('api-groq').value = s.groq;
+  $('api-openai').value = s.openai;
+  $('map-ai-provider').value = s.mapAi;
+  $('gemini-model').value = s.geminiModel;
+  $('modal-settings').classList.add('open');
+});
+
+$('btn-close-settings').addEventListener('click', () => $('modal-settings').classList.remove('open'));
+$('btn-save-settings').addEventListener('click', () => {
+  saveSettings({
+    gemini: $('api-gemini').value.trim(),
+    groq: $('api-groq').value.trim(),
+    openai: $('api-openai').value.trim(),
+    mapAi: $('map-ai-provider').value,
+    geminiModel: $('gemini-model').value,
+  });
+  $('modal-settings').classList.remove('open');
+  updateMapProviderHint();
+  updateScriptSearchHint();
+});
+
+// Acciones principales
+$('btn-transcribe').addEventListener('click', transcribeAudio);
+$('btn-generate-map').addEventListener('click', () => {
+  applyGeneratedMap(state.transcript, $('map-status'), $('merge-map').checked);
+});
+$('btn-text-to-map').addEventListener('click', () => {
+  const text = $('direct-text').value.trim();
+  if (!text) { setStatus($('text-status'), 'Escribe algo primero', 'error'); return; }
+  applyGeneratedMap(text, $('text-status'), $('merge-map-text').checked);
+});
+
+$('btn-create-sync').addEventListener('click', createCloudSync);
+$('btn-connect-sync').addEventListener('click', async () => {
+  try {
+    await pullFromCloud($('sync-blob-id').value.trim());
+  } catch (e) {
+    setStatus($('sync-status'), 'Error: ' + e.message, 'error');
+  }
+});
+$('btn-push-sync').addEventListener('click', () => pushToCloud(false));
+$('btn-pull-sync').addEventListener('click', async () => {
+  try {
+    await pullFromCloud($('sync-blob-id').value.trim());
+  } catch (e) {
+    setStatus($('sync-status'), 'Error: ' + e.message, 'error');
+  }
+});
+$('btn-export-sync-code').addEventListener('click', () => {
+  try { exportSyncCode(); } catch (e) { setStatus($('sync-status'), 'Error: ' + e.message, 'error'); }
+});
+$('btn-import-sync-code').addEventListener('click', () => {
+  try { importSyncCode(); } catch (e) { setStatus($('sync-status'), 'Error: ' + e.message, 'error'); }
+});
+
+updateMapProviderHint();
+
+$('btn-undo').addEventListener('click', undo);
+$('btn-redo').addEventListener('click', redo);
+$('btn-undo-panel').addEventListener('click', undo);
+$('btn-redo-panel').addEventListener('click', redo);
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+  if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+});
+
+$('btn-pdf').addEventListener('click', exportPDF);
+$('btn-apply-node-style').addEventListener('click', applyNodeStyle);
+$('btn-set-reminder').addEventListener('click', setNodeReminder);
+$('btn-clear-reminder').addEventListener('click', clearNodeReminder);
+$('btn-mark-link-source').addEventListener('click', () => {
+  state.linkSourceId = state.selectedId;
+  updateEditPanel();
+});
+$('btn-create-link').addEventListener('click', () => {
+  createCrossLink(state.linkSourceId, state.selectedId);
+  state.linkSourceId = null;
+  updateEditPanel();
+});
+$('btn-remove-links').addEventListener('click', () => {
+  if (state.selectedId) removeLinksForNode(state.selectedId);
+});
+
+document.querySelectorAll('.color-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    const col = sw.dataset.color;
+    $('node-color-picker').value = col || '#52b788';
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    if (state.selectedId) applyNodeStyle();
+  });
+});
+
+$('theme-select').addEventListener('change', e => applyTheme(e.target.value));
+$('btn-save-version').addEventListener('click', () => {
+  saveVersionSnapshot(prompt('Nombre de la versión (opcional):') || undefined);
+  setStatus($('version-diff'), '✓ Versión guardada', 'ok');
+});
+$('btn-compare-versions').addEventListener('click', compareSelectedVersions);
+$('btn-close-versions').addEventListener('click', () => $('modal-versions').classList.remove('open'));
+$('btn-restore-version-a').addEventListener('click', () => {
+  const v = getVersions().find(x => x.id === Number($('version-a').value));
+  if (v && confirm('¿Restaurar versión A?')) {
+    pushHistory();
+    deserializeWorkspace(v.data);
+    saveWorkspace();
+    $('modal-versions').classList.remove('open');
+  }
+});
+$('collab-enabled').addEventListener('change', e => {
+  localStorage.setItem(userScopedKey('mf_collab'), e.target.checked ? '1' : '0');
+  if (e.target.checked) startCollabPolling();
+  else { stopCollabPolling(); setStatus($('collab-status'), 'Colaboración desactivada', ''); }
+});
+
+$('btn-continuous-dictation').addEventListener('click', toggleContinuousDictation);
+$('btn-install-pwa').addEventListener('click', installPWA);
+$('btn-install-pwa-panel').addEventListener('click', installPWA);
+
+const fileZone = $('file-import-zone');
+const fileInput = $('file-import-input');
+fileZone.addEventListener('click', () => fileInput.click());
+fileZone.addEventListener('dragover', e => { e.preventDefault(); fileZone.classList.add('dragover'); });
+fileZone.addEventListener('dragleave', () => fileZone.classList.remove('dragover'));
+fileZone.addEventListener('drop', e => {
+  e.preventDefault();
+  fileZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) importExternalFile(e.dataTransfer.files[0]).catch(err => setStatus($('import-status'), 'Error: ' + err.message, 'error'));
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) importExternalFile(e.target.files[0]).catch(err => setStatus($('import-status'), 'Error: ' + err.message, 'error'));
+});
+
+// ─── Inicialización ──────────────────────────────────────────
+let appCoreReady = false;
+
+async function loadUserMap() {
+  state.nodes = [];
+  state.edges = [];
+  state.crossLinks = [];
+  state.selectedId = null;
+  state.history = { past: [], future: [], locking: false };
+  state.nodeIdCounter = 1;
+
+  const localRaw = localStorage.getItem(getWorkspaceKey());
+  let localData = null;
+  if (localRaw) {
+    try { localData = JSON.parse(localRaw); } catch { /* ignore */ }
+  }
+
+  if (localData?.nodes?.length) {
+    deserializeWorkspace(localData);
+  } else {
+    const wrap = canvas.parentElement;
+    createNode('Mi Mapa Mental', wrap.clientWidth / 2, wrap.clientHeight / 2);
+    fitView();
+    applyVibrantNodeColors();
+    render();
+    $('central-topic').value = 'Mi Mapa Mental';
+    scheduleSave();
+  }
+
+  applyVibrantNodeColors();
+  render();
+  updateSyncUI();
+
+  if (state.syncBlobId) {
+    try {
+      const res = await fetch(`https://jsonblob.com/api/jsonBlob/${state.syncBlobId}`);
+      if (res.ok) {
+        const cloudData = await res.json();
+        const localTime = localData?.savedAt || 0;
+        const cloudTime = cloudData?.savedAt || 0;
+        if (cloudTime > localTime) {
+          deserializeWorkspace(cloudData);
+          setStatus($('sync-status'), '✓ Mapa actualizado desde la nube', 'ok');
+        } else if (cloudTime < localTime) {
+          await pushToCloud(true);
+        }
+      }
+    } catch {
+      setStatus($('sync-status'), 'Sync local activo. Sin conexión a la nube.', 'error');
+    }
+  }
+
+  refreshVersionUI();
+  if (localStorage.getItem(userScopedKey('mf_collab')) === '1') {
+    $('collab-enabled').checked = true;
+    startCollabPolling();
+  }
+  pushHistory();
+}
+
+async function bootApp() {
+  loadUserSyncId();
+  stopCollabPolling();
+  if ($('collab-enabled')) $('collab-enabled').checked = false;
+
+  if (!appCoreReady) {
+    appCoreReady = true;
+    window.addEventListener('resize', resizeCanvas);
+    applyTheme(localStorage.getItem(THEME_KEY) || 'green');
+    setupSidebar();
+    setupMicSelector();
+    setupPWA();
+    setInterval(checkReminders, 30000);
+  }
+
+  resizeCanvas();
+  await loadUserMap();
+  await refreshMicList();
+  updateScriptSearchHint();
+}
+
+setupAuthUI();
+tryAutoLogin();
+</script>
+</body>
+</html>
