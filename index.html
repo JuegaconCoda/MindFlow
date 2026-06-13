@@ -553,8 +553,8 @@
       main { display: block !important; }
       body { overflow: visible; height: auto; }
     }
-    @media (max-width: 900px) {
-      body.is-mobile {
+    @media (max-width: 900px), (any-pointer: coarse) and (max-width: 1180px) {
+      body {
         font-size: 16px;
         -webkit-text-size-adjust: 100%;
       }
@@ -2541,7 +2541,12 @@ function createNode(label, x, y, parentId = null, depth = 0, opts = {}) {
 }
 
 function isMobileLayout() {
-  return window.innerWidth <= 900;
+  if (window.innerWidth <= 900) return true;
+  // Detecta teléfonos reales aunque el navegador fuerce un viewport ancho
+  // (p. ej. modo "Sitio de escritorio"): un puntero táctil en pantalla no-grande.
+  try {
+    return window.matchMedia('(any-pointer: coarse) and (max-width: 1180px)').matches;
+  } catch { return false; }
 }
 
 function getNodeMetrics() {
@@ -4178,18 +4183,18 @@ function setupSidebar() {
   const load = () => {
     try {
       const p = JSON.parse(localStorage.getItem(SIDEBAR_PREFS_KEY) || '{}');
-      const mobile = window.innerWidth <= 900;
+      const mobile = isMobileLayout();
       const defaultH = mobile ? Math.round(window.innerHeight * 0.55) : 300;
       return {
-        width: Math.min(Math.max(p.width || 340, 220), window.innerWidth - 200),
+        width: Math.min(Math.max(p.width || 340, 220), Math.max(window.innerWidth - 200, 220)),
         height: Math.min(Math.max(p.height || defaultH, 120), window.innerHeight - 150),
         collapsed: mobile ? (p.collapsed !== false) : !!p.collapsed,
       };
-    } catch { return { width: 340, height: 300, collapsed: window.innerWidth <= 900 }; }
+    } catch { return { width: 340, height: 300, collapsed: isMobileLayout() }; }
   };
   const save = (p) => localStorage.setItem(SIDEBAR_PREFS_KEY, JSON.stringify(p));
   let prefs = load();
-  if (window.innerWidth <= 900 && !localStorage.getItem('mf_mobile_sidebar_init')) {
+  if (isMobileLayout() && !localStorage.getItem('mf_mobile_sidebar_init')) {
     prefs.collapsed = true;
     localStorage.setItem('mf_mobile_sidebar_init', '1');
     save(prefs);
@@ -4227,7 +4232,7 @@ function setupSidebar() {
   const onMove = (x, y) => {
     if (!resizing) return;
     main.classList.add('sidebar-resizing');
-    if (window.innerWidth <= 900) {
+    if (isMobileLayout()) {
       const rect = main.getBoundingClientRect();
       prefs.height = Math.min(Math.max(rect.bottom - y, 120), rect.height - 120);
       main.style.setProperty('--sidebar-h', prefs.height + 'px');
