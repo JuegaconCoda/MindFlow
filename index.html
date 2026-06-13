@@ -1874,9 +1874,9 @@ async function uploadLocalAccountToCloud(password) {
   const userKey = findCloudUserKey(verified, user);
   if (!userKey) throw new Error('La subida no se verificó. Revisa API Key y Bin ID, luego reintenta.');
 
-  const reg = getUsersRegistry();
-  reg[userKey] = verified.users[userKey];
-  saveUsersRegistry(reg);
+  const registry = getUsersRegistry();
+  registry[userKey] = verified.users[userKey];
+  saveUsersRegistry(registry);
 }
 
 async function pushUserWorkspaceToCloud(silent = false) {
@@ -4948,6 +4948,13 @@ async function bootApp() {
 setupAuthUI();
 $('btn-mobile-menu')?.addEventListener('click', () => {
   document.querySelector('header')?.classList.toggle('mobile-menu-open');
+});
+// Cerrar el menú desplegable móvil al elegir cualquier acción (UX tipo menú)
+$('header-actions')?.addEventListener('click', e => {
+  if (!isMobileLayout()) return;
+  if (e.target.closest('button, select, .user-badge')) {
+    document.querySelector('header')?.classList.remove('mobile-menu-open');
+  }
 });
 
 document.body.classList.toggle('is-mobile', isMobileLayout());
